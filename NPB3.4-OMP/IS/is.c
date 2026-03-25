@@ -1,20 +1,20 @@
 /*************************************************************************
- *                                                                       * 
+ *                                                                       *
  *       N  A  S     P A R A L L E L     B E N C H M A R K S  3.4        *
  *                                                                       *
  *                      O p e n M P     V E R S I O N                    *
- *                                                                       * 
- *                                  I S                                  * 
- *                                                                       * 
- ************************************************************************* 
- *                                                                       * 
+ *                                                                       *
+ *                                  I S                                  *
+ *                                                                       *
+ *************************************************************************
+ *                                                                       *
  *   This benchmark is an OpenMP version of the NPB IS code.             *
  *   It is described in NAS Technical Report 99-011.                     *
  *                                                                       *
  *   Permission to use, copy, distribute and modify this software        *
  *   for any purpose with or without fee is hereby granted.  We          *
  *   request, however, that all derived work reference the NAS           *
- *   Parallel Benchmarks 3.4. This software is provided "as is"          *
+ *   Parallel Benchmarks 3.4. This software is provided "as is"         *
  *   without express or implied warranty.                                *
  *                                                                       *
  *   Information on NPB 3.4, including the technical report, the         *
@@ -33,32 +33,66 @@
  *         E-mail:  npb@nas.nasa.gov                                     *
  *         Fax:     (650) 604-3957                                       *
  *                                                                       *
- ************************************************************************* 
- *                                                                       * 
- *   Author: M. Yarrow                                                   * 
- *           H. Jin                                                      * 
- *                                                                       * 
+ *************************************************************************
+ *                                                                       *
+ *   Author: M. Yarrow                                                   *
+ *           H. Jin                                                      *
+ *                                                                       *
  *************************************************************************/
+
+/*
+ * Pickle Prefetcher Integration Notes
+ * ====================================
+ *
+ * The IS (Integer Sort) benchmark performs counting sort using bucket
+ * decomposition. The key memory access pattern that benefits from
+ * Pickle prefetching is the per-bucket ranking loop:
+ *
+ *     for (k = m; k < bucket_ptrs[i]; k++)
+ *         key_buff_ptr[key_buff_ptr2[k]]++;
+ *
+ * This is a classic indirect/gather pattern:
+ *   - key_buff_ptr2 (= key_buff2) is iterated SEQUENTIALLY
+ *   - Each value key_buff_ptr2[k] is used as an INDEX into key_buff_ptr
+ *     (= key_buff1), causing random accesses
+ *
+ * This is analogous to graph traversal patterns where sequential
+ * iteration through a neighbor list drives random property lookups:
+ *   - key_buff_ptr2  ~  out_neighbors array (sequential source)
+ *   - key_buff_ptr   ~  node property array (indirect target)
+ *
+ * Array descriptor chain for Pickle:
+ *   key_buff_ptr2 [SingleElement, Index]
+ *       └── dst_indexing_array_id ──► key_buff_ptr [SingleElement, Index]
+ *
+ * The prefetcher reads ahead in key_buff_ptr2 by prefetch_distance,
+ * extracts the key value, and prefetches the corresponding cache line
+ * in key_buff_ptr before the core needs it.
+ */
 
 #include "npbparams.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
+#if ENABLE_PICKLEDEVICE==1
+#pragma message("Compiling with Pickle device")
+#include "pickle_device_manager.h"
+#endif
+
+#if ENABLE_GEM5==1
+#pragma message("Compiling with gem5 instructions")
+#include <gem5/m5ops.h>
+#include "m5_mmap.h"
+#endif /* ENABLE_GEM5 */
+
 
 /*****************************************************************/
-/* For serial IS, buckets are not really req'd to solve NPB1 IS  */
-/* spec, but their use on some machines improves performance, on */
-/* other machines the use of buckets compromises performance,    */
-/* probably because it is extra computation which is not req'd.  */
-/* (Note: Mechanism not understood, probably cache related)      */
-/* Example:  SP2-66MhzWN:  50% speedup with buckets              */
-/* Example:  SGI Indy5000: 50% slowdown with buckets             */
-/* Example:  SGI O2000:   400% slowdown with buckets (Wow!)      */
+/* Bucket sort configuration                                     */
 /*****************************************************************/
-/* To disable the use of buckets, comment out the following line */
 #define USE_BUCKETS
 
 /* Uncomment below for cyclic schedule */
@@ -159,8 +193,8 @@ void m5_work_end_interface_();
 #endif
 #define  NUM_BUCKETS         (1 << NUM_BUCKETS_LOG_2)
 #define  NUM_KEYS            TOTAL_KEYS
-#define  SIZE_OF_BUFFERS     NUM_KEYS  
-                                           
+#define  SIZE_OF_BUFFERS     NUM_KEYS
+
 
 #define  MAX_ITERATIONS      10
 #define  TEST_ARRAY_SIZE     5
@@ -185,22 +219,43 @@ INT_TYPE *key_buff_ptr_global;         /* used by full_verify to get */
                                        /* copies of rank info        */
 
 int      passed_verification;
-                                 
+
 
 /************************************/
 /* These are the three main arrays. */
 /* See SIZE_OF_BUFFERS def above    */
 /************************************/
-INT_TYPE key_array[SIZE_OF_BUFFERS],    
+INT_TYPE key_array[SIZE_OF_BUFFERS],
          key_buff1[MAX_KEY],
          key_buff2[SIZE_OF_BUFFERS],
          partial_verify_vals[TEST_ARRAY_SIZE],
          **key_buff1_aptr = NULL;
 
 #ifdef USE_BUCKETS
-INT_TYPE **bucket_size, 
+INT_TYPE **bucket_size,
          bucket_ptrs[NUM_BUCKETS];
 #pragma omp threadprivate(bucket_ptrs)
+#endif
+
+
+/************************************/
+/* Pickle Prefetcher globals        */
+/************************************/
+#if ENABLE_PICKLEDEVICE==1
+volatile uint64_t* UCPage = NULL;
+volatile uint64_t* PerfPage = NULL;
+
+const uint64_t PERF_THREAD_START = 0;
+const uint64_t PERF_THREAD_COMPLETE = 1;
+
+/* Pickle device manager - global instance */
+PickleDeviceManager* pdev = NULL;
+
+/* Device specs - populated during setup */
+uint64_t use_pdev = 0;
+uint64_t prefetch_distance = 0;
+PrefetchMode prefetch_mode = UNKNOWN;
+uint64_t bulk_mode_chunk_size = 0;
 #endif
 
 
@@ -210,39 +265,39 @@ INT_TYPE **bucket_size,
 INT_TYPE test_index_array[TEST_ARRAY_SIZE],
          test_rank_array[TEST_ARRAY_SIZE];
 
-int      S_test_index_array[TEST_ARRAY_SIZE] = 
+int      S_test_index_array[TEST_ARRAY_SIZE] =
                              {48427,17148,23627,62548,4431},
-         S_test_rank_array[TEST_ARRAY_SIZE] = 
+         S_test_rank_array[TEST_ARRAY_SIZE] =
                              {0,18,346,64917,65463},
 
-         W_test_index_array[TEST_ARRAY_SIZE] = 
+         W_test_index_array[TEST_ARRAY_SIZE] =
                              {357773,934767,875723,898999,404505},
-         W_test_rank_array[TEST_ARRAY_SIZE] = 
+         W_test_rank_array[TEST_ARRAY_SIZE] =
                              {1249,11698,1039987,1043896,1048018},
 
-         A_test_index_array[TEST_ARRAY_SIZE] = 
+         A_test_index_array[TEST_ARRAY_SIZE] =
                              {2112377,662041,5336171,3642833,4250760},
-         A_test_rank_array[TEST_ARRAY_SIZE] = 
+         A_test_rank_array[TEST_ARRAY_SIZE] =
                              {104,17523,123928,8288932,8388264},
 
-         B_test_index_array[TEST_ARRAY_SIZE] = 
+         B_test_index_array[TEST_ARRAY_SIZE] =
                              {41869,812306,5102857,18232239,26860214},
-         B_test_rank_array[TEST_ARRAY_SIZE] = 
-                             {33422937,10244,59149,33135281,99}, 
+         B_test_rank_array[TEST_ARRAY_SIZE] =
+                             {33422937,10244,59149,33135281,99},
 
-         C_test_index_array[TEST_ARRAY_SIZE] = 
+         C_test_index_array[TEST_ARRAY_SIZE] =
                              {44172927,72999161,74326391,129606274,21736814},
-         C_test_rank_array[TEST_ARRAY_SIZE] = 
+         C_test_rank_array[TEST_ARRAY_SIZE] =
                              {61147,882988,266290,133997595,133525895};
 
-long     D_test_index_array[TEST_ARRAY_SIZE] = 
+long     D_test_index_array[TEST_ARRAY_SIZE] =
                              {1317351170,995930646,1157283250,1503301535,1453734525},
-         D_test_rank_array[TEST_ARRAY_SIZE] = 
+         D_test_rank_array[TEST_ARRAY_SIZE] =
                              {1,36538729,1978098519,2145192618,2147425337},
 
-         E_test_index_array[TEST_ARRAY_SIZE] = 
+         E_test_index_array[TEST_ARRAY_SIZE] =
                              {21492309536L,24606226181L,12608530949L,4065943607L,3324513396L},
-         E_test_rank_array[TEST_ARRAY_SIZE] = 
+         E_test_rank_array[TEST_ARRAY_SIZE] =
                              {3L,27580354L,3248475153L,30048754302L,31485259697L};
 
 
@@ -255,7 +310,7 @@ void full_verify( void );
 
 void c_print_results( char   *name,
                       char   class,
-                      int    n1, 
+                      int    n1,
                       int    n2,
                       int    n3,
                       int    niter,
@@ -275,42 +330,8 @@ void c_print_results( char   *name,
 #include "../common/c_timers.h"
 
 
-/*
- *    FUNCTION RANDLC (X, A)
- *
- *  This routine returns a uniform pseudorandom double precision number in the
- *  range (0, 1) by using the linear congruential generator
- *
- *  x_{k+1} = a x_k  (mod 2^46)
- *
- *  where 0 < x_k < 2^46 and 0 < a < 2^46.  This scheme generates 2^44 numbers
- *  before repeating.  The argument A is the same as 'a' in the above formula,
- *  and X is the same as x_0.  A and X must be odd double precision integers
- *  in the range (1, 2^46).  The returned value RANDLC is normalized to be
- *  between 0 and 1, i.e. RANDLC = 2^(-46) * x_1.  X is updated to contain
- *  the new seed x_1, so that subsequent calls to RANDLC using the same
- *  arguments will generate a continuous sequence.
- *
- *  This routine should produce the same results on any computer with at least
- *  48 mantissa bits in double precision floating point data.  On Cray systems,
- *  double precision should be disabled.
- *
- *  David H. Bailey     October 26, 1990
- *
- *     IMPLICIT DOUBLE PRECISION (A-H, O-Z)
- *     SAVE KS, R23, R46, T23, T46
- *     DATA KS/0/
- *
- *  If this is the first call to RANDLC, compute R23 = 2 ^ -23, R46 = 2 ^ -46,
- *  T23 = 2 ^ 23, and T46 = 2 ^ 46.  These are computed in loops, rather than
- *  by merely using the ** operator, in order to insure that the results are
- *  exact on all systems.  This code assumes that 0.5D0 is represented exactly.
- */
-
 /*****************************************************************/
 /*************           R  A  N  D  L  C             ************/
-/*************                                        ************/
-/*************    portable random number generator    ************/
 /*****************************************************************/
 
 static int      KS=0;
@@ -327,13 +348,13 @@ double	randlc( double *X, double *A )
       double		Z;
       int     		i, j;
 
-      if (KS == 0) 
+      if (KS == 0)
       {
         R23 = 1.0;
         R46 = 1.0;
         T23 = 1.0;
         T46 = 1.0;
-    
+
         for (i=1; i<=23; i++)
         {
           R23 = 0.50 * R23;
@@ -347,23 +368,17 @@ double	randlc( double *X, double *A )
         KS = 1;
       }
 
-/*  Break A into two parts such that A = 2^23 * A1 + A2 and set X = N.  */
-
       T1 = R23 * *A;
       j  = T1;
       A1 = j;
       A2 = *A - T23 * A1;
-
-/*  Break X into two parts such that X = 2^23 * X1 + X2, compute
-    Z = A1 * X2 + A2 * X1  (mod 2^23), and then
-    X = 2^23 * Z + A2 * X2  (mod 2^46).                            */
 
       T1 = R23 * *X;
       j  = T1;
       X1 = j;
       X2 = *X - T23 * X1;
       T1 = A1 * X2 + A2 * X1;
-      
+
       j  = R23 * T1;
       T2 = j;
       Z = T1 - T23 * T2;
@@ -372,39 +387,26 @@ double	randlc( double *X, double *A )
       T4 = j;
       *X = T3 - T46 * T4;
       return(R46 * *X);
-} 
-
-
+}
 
 
 /*****************************************************************/
 /************   F  I  N  D  _  M  Y  _  S  E  E  D    ************/
-/************                                         ************/
-/************ returns parallel random number seq seed ************/
 /*****************************************************************/
 
-/*
- * Create a random number sequence of total length nn residing
- * on np number of processors.  Each processor will therefore have a
- * subsequence of length nn/np.  This routine returns that random
- * number which is the first random number for the subsequence belonging
- * to processor rank kn, and which is used as seed for proc kn ran # gen.
- */
-
-double   find_my_seed( int kn,        /* my processor rank, 0<=kn<=num procs */
-                       int np,        /* np = num procs                      */
-                       long nn,       /* total num of ran numbers, all procs */
-                       double s,      /* Ran num seed, for ex.: 314159265.00 */
-                       double a )     /* Ran num gen mult, try 1220703125.00 */
+double   find_my_seed( int kn,
+                       int np,
+                       long nn,
+                       double s,
+                       double a )
 {
-
       double t1,t2;
       long   mq,nq,kk,ik;
 
       if ( kn == 0 ) return s;
 
       mq = (nn/4 + np - 1) / np;
-      nq = mq * 4 * kn;               /* number of rans to be skipped */
+      nq = mq * 4 * kn;
 
       t1 = s;
       t2 = a;
@@ -423,9 +425,7 @@ double   find_my_seed( int kn,        /* my processor rank, 0<=kn<=num procs */
       (void)randlc( &t1, &t2 );
 
       return( t1 );
-
 }
-
 
 
 /*****************************************************************/
@@ -465,13 +465,12 @@ void	create_seq( double seed, double a )
 	    x = randlc(&s, &an);
 	    x += randlc(&s, &an);
     	    x += randlc(&s, &an);
-	    x += randlc(&s, &an);  
+	    x += randlc(&s, &an);
 
             key_array[i] = k*x;
 	}
     } /*omp parallel*/
 }
-
 
 
 /*****************************************************************/
@@ -493,7 +492,6 @@ void alloc_key_buff( void )
 {
     INT_TYPE i;
     int      num_threads = 1;
-
 
 #ifdef _OPENMP
     num_threads = omp_get_max_threads();
@@ -523,25 +521,17 @@ void alloc_key_buff( void )
 }
 
 
-
 /*****************************************************************/
 /*************    F  U  L  L  _  V  E  R  I  F  Y     ************/
 /*****************************************************************/
-
 
 void full_verify( void )
 {
     INT_TYPE   i, j;
     INT_TYPE   k, k1, k2;
 
-
-/*  Now, finally, sort the keys:  */
-
-/*  Copy keys into work array; keys in key_array will be reassigned. */
-
 #ifdef USE_BUCKETS
 
-    /* Buckets are already sorted.  Sorting keys within each bucket */
 #ifdef SCHED_CYCLIC
     #pragma omp parallel for private(i,j,k,k1) schedule(static,1)
 #else
@@ -564,8 +554,6 @@ void full_verify( void )
     for( i=0; i<NUM_KEYS; i++ )
         key_buff2[i] = key_array[i];
 
-    /* This is actual sorting. Each thread is responsible for 
-       a subset of key values */
 #ifdef _OPENMP
     j = omp_get_num_threads();
     j = (MAX_KEY + j - 1) / j;
@@ -587,9 +575,6 @@ void full_verify( void )
 
 #endif
 
-
-/*  Confirm keys correctly sorted: count incorrectly sorted keys, if any */
-
     j = 0;
     #pragma omp parallel for reduction(+:j)
     for( i=1; i<NUM_KEYS; i++ )
@@ -600,16 +585,120 @@ void full_verify( void )
         printf( "Full_verify: number of keys out of sort: %ld\n", (long)j );
     else
         passed_verification++;
-
 }
 
 
+#if ENABLE_PICKLEDEVICE==1
+/*****************************************************************/
+/*************    P I C K L E   S E T U P             ************/
+/*****************************************************************/
+
+/*
+ * Setup the Pickle device for the IS ranking kernel.
+ *
+ * The ranking kernel has the following indirect access pattern:
+ *
+ *   key_buff_ptr[ key_buff_ptr2[k] ]++
+ *   ~~~~~~~~~~~~  ~~~~~~~~~~~~~~~~
+ *    target arr    source arr (sequential iteration)
+ *
+ * Array chain:
+ *   key_buff2 (source, sequential) ──values-as-indices──► key_buff1 (target, random)
+ *
+ * This is analogous to the graph pattern:
+ *   property[ neighbors[k] ]
+ *   ~~~~~~~~  ~~~~~~~~~~~~
+ *   node prop  neighbor list
+ */
+void pickle_setup( void )
+{
+    pdev = new PickleDeviceManager();
+
+    /* Get performance monitoring page */
+    PerfPage = (volatile uint64_t*) pdev->getPerfPagePtr();
+    printf("PerfPage: 0x%lx\n", (unsigned long)PerfPage);
+    assert(PerfPage != NULL);
+
+    /* Read device capabilities */
+    PickleDevicePrefetcherSpecs specs = pdev->getDevicePrefetcherSpecs();
+    use_pdev = specs.availability;
+    prefetch_distance = specs.prefetch_distance;
+    prefetch_mode = specs.prefetch_mode;
+    bulk_mode_chunk_size = specs.bulk_mode_chunk_size;
+
+    printf("Pickle Device specs:\n");
+    printf("  . Use pdev: %lu\n", (unsigned long)use_pdev);
+    printf("  . Prefetch distance: %lu\n", (unsigned long)prefetch_distance);
+    printf("  . Prefetch mode (0: unknown, 1: single, 2: bulk): %d\n", prefetch_mode);
+    printf("  . Chunk size (should be non-zero in bulk mode): %lu\n",
+           (unsigned long)bulk_mode_chunk_size);
+
+    if (use_pdev == 1) {
+        /*
+         * Create and send the Pickle job describing the IS ranking kernel.
+         *
+         * The kernel iterates sequentially through key_buff2 (the bucket-
+         * scattered keys), and for each key value, accesses key_buff1[key]
+         * to update a histogram count. Pickle can read ahead in key_buff2
+         * to discover future key values and prefetch the corresponding
+         * key_buff1 cache lines.
+         */
+        PickleJob job(/*kernel_name*/"is_ranking_kernel");
+
+        /* Source array: key_buff2 (iterated sequentially within each bucket) */
+        PickleArrayDescriptor* key_buff2_desc = new PickleArrayDescriptor();
+        key_buff2_desc->name = "key_buff2";
+        key_buff2_desc->vaddr_start = (uint64_t)(&key_buff2[0]);
+        key_buff2_desc->vaddr_end = (uint64_t)(&key_buff2[SIZE_OF_BUFFERS]);
+        key_buff2_desc->element_size = sizeof(INT_TYPE);
+        key_buff2_desc->access_type = AccessType::SingleElement;
+        key_buff2_desc->addressing_mode = AddressingMode::Index;
+
+        /* Target array: key_buff1 (accessed indirectly via values in key_buff2) */
+        PickleArrayDescriptor* key_buff1_desc = new PickleArrayDescriptor();
+        key_buff1_desc->name = "key_buff1";
+        key_buff1_desc->vaddr_start = (uint64_t)(&key_buff1[0]);
+        key_buff1_desc->vaddr_end = (uint64_t)(&key_buff1[MAX_KEY]);
+        key_buff1_desc->element_size = sizeof(INT_TYPE);
+        key_buff1_desc->access_type = AccessType::SingleElement;
+        key_buff1_desc->addressing_mode = AddressingMode::Index;
+
+        /*
+         * Link: values read from key_buff2 are used as indices into key_buff1.
+         * This tells Pickle: "when you read ahead in key_buff2 and find value V,
+         * prefetch key_buff1[V]."
+         */
+        key_buff2_desc->dst_indexing_array_id = key_buff1_desc->getArrayId();
+
+        std::shared_ptr<PickleArrayDescriptor> key_buff2_shared(key_buff2_desc);
+        std::shared_ptr<PickleArrayDescriptor> key_buff1_shared(key_buff1_desc);
+        job.addArrayDescriptor(key_buff2_shared);
+        job.addArrayDescriptor(key_buff1_shared);
+
+        job.print();
+        pdev->sendJob(job);
+        printf("Sent is_ranking_kernel job\n");
+
+        /* Get the uncacheable communication page */
+        UCPage = (volatile uint64_t*) pdev->getUCPagePtr(0);
+        printf("UCPage: 0x%lx\n", (unsigned long)UCPage);
+        assert(UCPage != NULL);
+    }
+}
+
+void pickle_teardown( void )
+{
+    if (pdev != NULL) {
+        delete pdev;
+        pdev = NULL;
+    }
+}
+#endif /* ENABLE_PICKLEDEVICE */
 
 
 /*****************************************************************/
 /*************             R  A  N  K             ****************/
 /*****************************************************************/
-
 
 void rank( int iteration )
 {
@@ -652,16 +741,18 @@ void rank( int iteration )
     num_threads = omp_get_num_threads();
 #endif
 
+#if ENABLE_PICKLEDEVICE==1
+    const uint64_t thread_id = (uint64_t)myid;
+    if (PerfPage != NULL)
+        *PerfPage = (thread_id << 1) | PERF_THREAD_START;
+#endif
 
-/*  Bucket sort is known to improve cache performance on some   */
-/*  cache based systems.  But the actual performance may depend */
-/*  on cache size, problem size. */
 #ifdef USE_BUCKETS
 
     work_buff = bucket_size[myid];
 
 /*  Initialize */
-    for( i=0; i<NUM_BUCKETS; i++ )  
+    for( i=0; i<NUM_BUCKETS; i++ )
         work_buff[i] = 0;
 
 /*  Determine the number of keys in each bucket */
@@ -672,10 +763,10 @@ void rank( int iteration )
 /*  Accumulative bucket sizes are the bucket pointers.
     These are global sizes accumulated upon to each bucket */
     bucket_ptrs[0] = 0;
-    for( k=0; k< myid; k++ )  
+    for( k=0; k< myid; k++ )
         bucket_ptrs[0] += bucket_size[k][0];
 
-    for( i=1; i< NUM_BUCKETS; i++ ) { 
+    for( i=1; i< NUM_BUCKETS; i++ ) {
         bucket_ptrs[i] = bucket_ptrs[i-1];
         for( k=0; k< myid; k++ )
             bucket_ptrs[i] += bucket_size[k][i];
@@ -686,7 +777,7 @@ void rank( int iteration )
 
 /*  Sort into appropriate bucket */
     #pragma omp for schedule(static)
-    for( i=0; i<NUM_KEYS; i++ )  
+    for( i=0; i<NUM_KEYS; i++ )
     {
         k = key_array[i];
         key_buff2[bucket_ptrs[k >> shift]++] = k;
@@ -719,14 +810,44 @@ void rank( int iteration )
             key_buff_ptr[k] = 0;
 
 /*  Ranking of all keys occurs in this section:                 */
-
-/*  In this section, the keys themselves are used as their 
+/*  In this section, the keys themselves are used as their
     own indexes to determine how many of each there are: their
     individual population                                       */
         m = (i > 0)? bucket_ptrs[i-1] : 0;
-        for ( k = m; k < bucket_ptrs[i]; k++ )
-            key_buff_ptr[key_buff_ptr2[k]]++;  /* Now they have individual key   */
-                                       /* population                     */
+
+        /*
+         * === PICKLE PREFETCH HINT FOR RANKING LOOP ===
+         *
+         * This is the performance-critical indirect access:
+         *   key_buff_ptr[ key_buff_ptr2[k] ]++
+         *
+         * key_buff_ptr2 is iterated sequentially (k goes from m to bucket_ptrs[i]).
+         * Each value key_buff_ptr2[k] is a key in range [k1, k2) and is used
+         * to index into key_buff_ptr, causing potential cache misses for large
+         * key ranges.
+         *
+         * The Pickle prefetcher reads ahead in key_buff_ptr2 by prefetch_distance,
+         * discovers the future key value, and prefetches the target cache line in
+         * key_buff_ptr before the core needs it.
+         */
+#if ENABLE_PICKLEDEVICE==1
+        if (use_pdev == 1) {
+            for ( k = m; k < bucket_ptrs[i]; k++ ) {
+                /* Send prefetch hint: address of current source element.
+                 * The device reads key_buff_ptr2[k + prefetch_distance],
+                 * gets the key value V, and prefetches key_buff_ptr[V]. */
+                if ( k + (INT_TYPE)prefetch_distance < bucket_ptrs[i] ) {
+                    *UCPage = (uint64_t)(&key_buff_ptr2[k]);
+                }
+                key_buff_ptr[key_buff_ptr2[k]]++;
+            }
+        } else
+#endif
+        {
+            /* Original loop without prefetch hints */
+            for ( k = m; k < bucket_ptrs[i]; k++ )
+                key_buff_ptr[key_buff_ptr2[k]]++;
+        }
 
 /*  To obtain ranks of each key, successively add the individual key
     population, not forgetting to add m, the total of lesser keys,
@@ -739,30 +860,48 @@ void rank( int iteration )
 
 #else /*USE_BUCKETS*/
 
-
     work_buff = key_buff1_aptr[myid];
-
 
 /*  Clear the work array */
     for( i=0; i<MAX_KEY; i++ )
         work_buff[i] = 0;
 
-
 /*  Ranking of all keys occurs in this section:                 */
-
-/*  In this section, the keys themselves are used as their 
+/*  In this section, the keys themselves are used as their
     own indexes to determine how many of each there are: their
     individual population                                       */
 
-    #pragma omp for nowait schedule(static)
-    for( i=0; i<NUM_KEYS; i++ )
-        work_buff[key_buff_ptr2[i]]++;  /* Now they have individual key   */
-                                       /* population                     */
+    /*
+     * === PICKLE PREFETCH HINT FOR NON-BUCKET RANKING ===
+     *
+     * Same indirect access pattern as the bucket version:
+     *   work_buff[ key_buff_ptr2[i] ]++
+     *
+     * key_buff_ptr2 = key_array, iterated sequentially.
+     * Values are used as indices into work_buff (= key_buff1 copy).
+     * For large MAX_KEY, this causes scattered cache misses.
+     */
+#if ENABLE_PICKLEDEVICE==1
+    if (use_pdev == 1) {
+        #pragma omp for nowait schedule(static)
+        for( i=0; i<NUM_KEYS; i++ ) {
+            if ( i + (INT_TYPE)prefetch_distance < NUM_KEYS ) {
+                *UCPage = (uint64_t)(&key_buff_ptr2[i]);
+            }
+            work_buff[key_buff_ptr2[i]]++;
+        }
+    } else
+#endif
+    {
+        #pragma omp for nowait schedule(static)
+        for( i=0; i<NUM_KEYS; i++ )
+            work_buff[key_buff_ptr2[i]]++;
+    }
 
 /*  To obtain ranks of each key, successively add the individual key
     population                                          */
 
-    for( i=0; i<MAX_KEY-1; i++ )   
+    for( i=0; i<MAX_KEY-1; i++ )
         work_buff[i+1] += work_buff[i];
 
     #pragma omp barrier
@@ -776,13 +915,18 @@ void rank( int iteration )
 
 #endif /*USE_BUCKETS*/
 
+#if ENABLE_PICKLEDEVICE==1
+    if (PerfPage != NULL)
+        *PerfPage = (thread_id << 1) | PERF_THREAD_COMPLETE;
+#endif
+
   } /*omp parallel*/
 
 /* This is the partial verify test section */
 /* Observe that test_rank_array vals are   */
 /* shifted differently for different cases */
     for( i=0; i<TEST_ARRAY_SIZE; i++ )
-    {                                             
+    {
         k = partial_verify_vals[i];          /* test vals were put here */
         if( 0 < k  &&  k <= NUM_KEYS-1 )
         {
@@ -849,22 +993,17 @@ void rank( int iteration )
                 passed_verification++;
             if( failed == 1 )
                 printf( "Failed partial verification: "
-                        "iteration %d, test key %d\n", 
+                        "iteration %d, test key %d\n",
                          iteration, (int)i );
         }
     }
 
 
-
-
-/*  Make copies of rank info for use by full_verify: these variables
-    in rank are local; making them global slows down the code, probably
-    since they cannot be made register by compiler                        */
-
-    if( iteration == MAX_ITERATIONS ) 
+/*  Make copies of rank info for use by full_verify */
+    if( iteration == MAX_ITERATIONS )
         key_buff_ptr_global = key_buff_ptr;
 
-}      
+}
 
 
 /*****************************************************************/
@@ -926,7 +1065,7 @@ int main( int argc, char **argv )
                 break;
         };
 
-        
+
 
 /*  Printout initial NPB info */
     printf
@@ -948,22 +1087,42 @@ int main( int argc, char **argv )
     if (timer_on) timer_stop( 1 );
 
 
-/*  Do one interation for free (i.e., untimed) to guarantee initialization of  
+/*  Do one interation for free (i.e., untimed) to guarantee initialization of
     all data and code pages and respective tables */
-    rank( 1 );  
+    rank( 1 );
 
 /*  Start verification counter */
     passed_verification = 0;
 
     if( CLASS != 'S' ) printf( "\n   iteration\n" );
 
+/*  ============================================================  */
+/*  Pickle Prefetcher Setup                                        */
+/*  Set up the device AFTER the warmup iteration (trial 0) so     */
+/*  that the arrays are initialized and their addresses are final. */
+/*  This mirrors the graph benchmarks' two-trial structure:        */
+/*    Trial 0 = warmup rank(1) above                               */
+/*    Trial 1 = timed iterations below with prefetch hints         */
+/*  ============================================================  */
+#if ENABLE_PICKLEDEVICE==1
+    pickle_setup();
+#endif
+
+#if ENABLE_GEM5==1
+    map_m5_mem();
+#endif /* ENABLE_GEM5 */
+
 #ifdef M5_ANNOTATION
     m5_work_begin_interface_();
 #endif
 
-/*  Start timer  */             
-    timer_start( 0 );
+#if ENABLE_GEM5==1
+    m5_exit_addr(0);  /* ROI Start */
+#endif /* ENABLE_GEM5 */
 
+/*  Start timer  */
+    timer_start( 0 );
+    printf("ROI Start\n");
 
 /*  This is the main iteration */
     for( iteration=1; iteration<=MAX_ITERATIONS; iteration++ )
@@ -975,6 +1134,11 @@ int main( int argc, char **argv )
 
 /*  End of timing, obtain maximum time of all processors */
     timer_stop( 0 );
+    printf("ROI End\n");
+
+#if ENABLE_GEM5==1
+    m5_exit_addr(0);  /* ROI End */
+#endif /* ENABLE_GEM5 */
 
 #ifdef M5_ANNOTATION
     m5_work_end_interface_();
@@ -991,6 +1155,10 @@ int main( int argc, char **argv )
 
     if (timer_on) timer_stop( 3 );
 
+/*  Cleanup Pickle device  */
+#if ENABLE_PICKLEDEVICE==1
+    pickle_teardown();
+#endif
 
 /*  The final printout  */
     if( passed_verification != 5*MAX_ITERATIONS + 1 )
@@ -1004,7 +1172,7 @@ int main( int argc, char **argv )
                      timecounter,
                      1.0e-6*(double)(TOTAL_KEYS)*MAX_ITERATIONS
                                                   /timecounter,
-                     "keys ranked", 
+                     "keys ranked",
                      passed_verification,
                      NPBVERSION,
                      COMPILETIME,
@@ -1039,7 +1207,3 @@ int main( int argc, char **argv )
          /**************************/
 }        /*  E N D  P R O G R A M  */
          /**************************/
-
-
-
-
