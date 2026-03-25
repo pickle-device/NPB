@@ -1,7 +1,7 @@
 !---------------------------------------------------------------------
 !---------------------------------------------------------------------
 !
-!  cg_data module
+!  cg_data module  (Pickle-modified: target attribute on key arrays)
 !
 !---------------------------------------------------------------------
 !---------------------------------------------------------------------
@@ -22,18 +22,21 @@
       parameter( naz = int(na,kz)*(nonzer+1) )
 
 ! ... main_int_mem
-      integer, allocatable ::  colidx(:),  &
-     &                         iv(:),  arow(:), acol(:)
-      integer(kz), allocatable ::  rowstr(:)
+!     PICKLE CHANGE: added 'target' to colidx and rowstr so that
+!     c_loc() can obtain their addresses for the C hooks.
+      integer, allocatable, target ::  colidx(:)
+      integer, allocatable ::  iv(:),  arow(:), acol(:)
+      integer(kz), allocatable, target ::  rowstr(:)
 
 ! ... main_flt_mem
-      double precision, allocatable ::  &
-     &                         v(:), aelt(:), a(:),  &
-     &                         x(:),  &
-     &                         z(:),  &
-     &                         p(:),  &
-     &                         q(:),  &
-     &                         r(:)
+!     PICKLE CHANGE: added 'target' to a, p, z for c_loc().
+      double precision, allocatable ::  v(:), aelt(:)
+      double precision, allocatable, target :: a(:)
+      double precision, allocatable ::  x(:)
+      double precision, allocatable, target :: z(:)
+      double precision, allocatable, target :: p(:)
+      double precision, allocatable ::  q(:)
+      double precision, allocatable ::  r(:)
 
 ! ... partition size
       integer                  naa,  &
@@ -115,4 +118,3 @@
 
       return
       end
-
