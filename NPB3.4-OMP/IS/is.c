@@ -98,11 +98,6 @@
 /* Uncomment below for cyclic schedule */
 /*#define SCHED_CYCLIC*/
 
-#ifdef M5_ANNOTATION
-void m5_work_begin_interface_();
-void m5_work_end_interface_();
-#endif
-
 /******************/
 /* default values */
 /******************/
@@ -309,7 +304,7 @@ double	randlc( double *X, double *A );
 void full_verify( void );
 
 void c_print_results( char   *name,
-                      char   class,
+                      char   workload_class,
                       int    n1,
                       int    n2,
                       int    n3,
@@ -1112,10 +1107,6 @@ int main( int argc, char **argv )
     map_m5_mem();
 #endif /* ENABLE_GEM5 */
 
-#ifdef M5_ANNOTATION
-    m5_work_begin_interface_();
-#endif
-
 #if ENABLE_GEM5==1
     m5_exit_addr(0);  /* ROI Start */
 #endif /* ENABLE_GEM5 */
@@ -1139,10 +1130,6 @@ int main( int argc, char **argv )
 #if ENABLE_GEM5==1
     m5_exit_addr(0);  /* ROI End */
 #endif /* ENABLE_GEM5 */
-
-#ifdef M5_ANNOTATION
-    m5_work_end_interface_();
-#endif
 
     timecounter = timer_read( 0 );
 
