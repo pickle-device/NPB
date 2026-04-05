@@ -47,6 +47,11 @@
 #include <cassert>
 #include <memory>
 
+#if ENABLE_GEM5==1
+#include <gem5/m5ops.h>
+#include "m5_mmap.h"
+#endif
+
 #if ENABLE_PICKLEDEVICE==1
 #include "pickle_device_manager.h"
 #endif
@@ -75,6 +80,44 @@ static uint64_t g_bulk_chunk_size   = 0;
 
 extern "C" {
 
+void map_m5_mem_hook() {
+    map_m5_mem();
+}
+
+void m5_exit_hook() {
+    m5_exit_addr(0);
+}
+
+void wait_till_pdev_available() {
+    uint64_t failure_count = 0;
+    if (pdev == NULL) {
+        pdev = new PickleDeviceManager();
+    }
+
+    /* Get performance monitoring page */
+    if (PerfPage == NULL) {
+        PerfPage = (volatile uint64_t*) pdev->getPerfPagePtr();
+        printf("PerfPage: 0x%lx\n", (unsigned long)PerfPage);
+        assert(PerfPage != NULL);
+    }
+    while (true) {
+        /* Read device capabilities */
+        PickleDevicePrefetcherSpecs specs = pdev->getDevicePrefetcherSpecs();
+        g_use_pdev = specs.availability;
+
+        if (!(g_use_pdev == 0 || g_use_pdev == 1)) {
+            failure_count++;
+            printf("  . Use pdev: %lu\n", (unsigned long)g_use_pdev);
+            m5_exit_addr(0);
+        } else {
+            printf("  . Use pdev: %lu\n", (unsigned long)g_use_pdev);
+            if (failure_count == 0) {
+                m5_exit_addr(0);
+            }
+            return;
+        }
+    }
+}
 
 /* ----------------------------------------------------------------
  *  pickle_cg_init  —  create the device manager and read specs
@@ -89,11 +132,15 @@ void pickle_cg_init(
     uint64_t* out_bulk_chunk_size)
 {
 #if ENABLE_PICKLEDEVICE==1
-    pdev = new PickleDeviceManager();
+    if (pdev == nullptr) {
+        pdev = new PickleDeviceManager();
+    }
 
-    PerfPage = (volatile uint64_t*) pdev->getPerfPagePtr();
-    printf("[Pickle CG] PerfPage : 0x%lx\n", (unsigned long)PerfPage);
-    assert(PerfPage != nullptr);
+    if (PerfPage == nullptr) {
+        PerfPage = (volatile uint64_t*) pdev->getPerfPagePtr();
+        printf("[Pickle CG] PerfPage : 0x%lx\n", (unsigned long)PerfPage);
+        assert(PerfPage != nullptr);
+    }
 
     PickleDevicePrefetcherSpecs specs = pdev->getDevicePrefetcherSpecs();
     g_use_pdev          = specs.availability;
@@ -231,15 +278,38 @@ void pickle_cg_setup_ucpages(void)
 
 
 /* ----------------------------------------------------------------
+ *  pickle_cg_get_ucpage_ptrs  —  export raw UCPage addresses
+ *
+ *  Returns the addresses of UCPage_kern1 and UCPage_kern2 so that
+ *  Fortran can store hints directly via volatile pointers, avoiding
+ *  per-row function call overhead.  This matches the graph benchmarks'
+ *  inline  *UCPage = value  pattern.
+ *
+ *  Fortran side converts these via c_f_pointer() to volatile pointers.
+ * ---------------------------------------------------------------- */
+void pickle_cg_get_ucpage_ptrs(
+    int64_t** out_kern1,
+    int64_t** out_kern2)
+{
+#if ENABLE_PICKLEDEVICE==1
+    *out_kern1 = (int64_t*)UCPage_kern1;
+    *out_kern2 = (int64_t*)UCPage_kern2;
+#else
+    *out_kern1 = nullptr;
+    *out_kern2 = nullptr;
+#endif
+}
+ 
+ 
+/* ----------------------------------------------------------------
  *  pickle_cg_spmv_hint  —  send a row-level prefetch hint
+ *
+ *  DEPRECATED: prefer direct stores via pkl_ucpage_kern1/kern2
+ *  volatile Fortran pointers obtained from pickle_cg_get_ucpage_ptrs.
+ *  Kept for backward compatibility.
  *
  *  kernel_id : 1 (q=A·p) or 2 (r=A·z)
  *  row_0based: the 0-based row index  (Fortran j − 1)
- *
- *  The device receives the row index, adds prefetch_distance,
- *  reads rowstr[future_row] to find the nonzero range in colidx,
- *  reads the column indices, and prefetches the corresponding
- *  entries in the target vector.
  * ---------------------------------------------------------------- */
 void pickle_cg_spmv_hint(const int* kernel_id, const int64_t* row_0based)
 {
@@ -253,7 +323,6 @@ void pickle_cg_spmv_hint(const int* kernel_id, const int64_t* row_0based)
     (void)kernel_id; (void)row_0based;
 #endif
 }
-
 
 /* ----------------------------------------------------------------
  *  Performance monitoring  —  mirror the graph benchmarks

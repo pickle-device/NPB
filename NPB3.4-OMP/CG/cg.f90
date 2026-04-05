@@ -341,6 +341,16 @@
 !    rowstr → colidx → p  (kernel 1: q = A·p)
 !    rowstr → colidx → z  (kernel 2: r = A·z)
 !=====================================================================
+! Exit 1: cpu switching after this exit
+#if ENABLE_GEM5==1
+     ! call m5_exit()
+     call map_m5_mem()
+     call wait_till_pdev_available()
+#endif
+! Exit 2: pickle device is enabled after this exit
+#if ENABLE_GEM5==1
+      call m5_exit()
+#endif
 #if ENABLE_PICKLEDEVICE==1
       call pickle_cg_device_init()
 
@@ -372,13 +382,9 @@
       endif
 #endif
 
-
-#ifdef M5_ANNOTATION
-      call m5_work_begin_interface
-#endif
-
+! Exit 3: ROI Start
 #if ENABLE_GEM5==1
-      call m5_exit(0)
+      call m5_exit()
 #endif
 
       call timer_start( T_bench )
@@ -446,12 +452,9 @@
 
       write(*,*) 'ROI End'
 
+! Exit 4: ROI End
 #if ENABLE_GEM5==1
-      call m5_exit(0)
-#endif
-
-#ifdef M5_ANNOTATION
-      call m5_work_end_interface
+      call m5_exit()
 #endif
 
 !---------------------------------------------------------------------
@@ -675,22 +678,29 @@
 !    4. Prefetches corresponding p() cache lines
 !  ============================================================
 !
+if (pkl_use_pdev .eq. 1) then
 !$omp do
          do j=1,lastrow-firstrow+1
             suml = 0.d0
-#if ENABLE_PICKLEDEVICE==1
-            if (pkl_use_pdev .eq. 1) then
-               pkl_kid_local = 1
-               pkl_row_hint = int(j - 1, c_int64_t)
-               call pickle_cg_spmv_hint_c(pkl_kid_local, pkl_row_hint)
-            endif
-#endif
+            pkl_ucpage_kern1 = int(j - 1, c_int64_t)
             do k=rowstr(j),rowstr(j+1)-1
                suml = suml + a(k)*p(colidx(k))
             enddo
             q(j) = suml
          enddo
 !$omp end do
+else
+!$omp do
+         do j=1,lastrow-firstrow+1
+            suml = 0.d0
+            pkl_ucpage_kern1 = int(j - 1, c_int64_t)
+            do k=rowstr(j),rowstr(j+1)-1
+               suml = suml + a(k)*p(colidx(k))
+            enddo
+            q(j) = suml
+         enddo
+!$omp end do
+endif
 
 
 !---------------------------------------------------------------------
@@ -756,23 +766,28 @@
 !  Runs once per outer CG iteration for the residual norm.
 !  ============================================================
 !
+if (pkl_use_pdev .eq. 1) then
 !$omp do
       do j=1,lastrow-firstrow+1
          suml = 0.d0
-#if ENABLE_PICKLEDEVICE==1
-         if (pkl_use_pdev .eq. 1) then
-            pkl_kid_local = 2
-            pkl_row_hint = int(j - 1, c_int64_t)
-            call pickle_cg_spmv_hint_c(pkl_kid_local, pkl_row_hint)
-         endif
-#endif
+         pkl_ucpage_kern2 = int(j - 1, c_int64_t)
          do k=rowstr(j),rowstr(j+1)-1
             suml = suml + a(k)*z(colidx(k))
          enddo
          r(j) = suml
       enddo
 !$omp end do
-
+else
+!$omp do
+      do j=1,lastrow-firstrow+1
+         suml = 0.d0
+         do k=rowstr(j),rowstr(j+1)-1
+            suml = suml + a(k)*z(colidx(k))
+         enddo
+         r(j) = suml
+      enddo
+!$omp end do
+endif
 
 !---------------------------------------------------------------------
 !  At this point, r contains A.z
