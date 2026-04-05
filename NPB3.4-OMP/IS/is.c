@@ -605,14 +605,50 @@ void full_verify( void )
  *   ~~~~~~~~  ~~~~~~~~~~~~
  *   node prop  neighbor list
  */
-void pickle_setup( void )
+void wait_till_pickle_device_available( void )
 {
-    pdev = new PickleDeviceManager();
+#pragma message("abcd")
+    uint64_t failure_count = 0;
+    if (pdev == NULL) {
+        pdev = new PickleDeviceManager();
+    }
 
     /* Get performance monitoring page */
-    PerfPage = (volatile uint64_t*) pdev->getPerfPagePtr();
-    printf("PerfPage: 0x%lx\n", (unsigned long)PerfPage);
-    assert(PerfPage != NULL);
+    if (PerfPage == NULL) {
+        PerfPage = (volatile uint64_t*) pdev->getPerfPagePtr();
+        printf("PerfPage: 0x%lx\n", (unsigned long)PerfPage);
+        assert(PerfPage != NULL);
+    }
+    while (true) {
+        /* Read device capabilities */
+        PickleDevicePrefetcherSpecs specs = pdev->getDevicePrefetcherSpecs();
+        use_pdev = specs.availability;
+
+        if (!(use_pdev == 0 || use_pdev == 1)) {
+            failure_count++;
+            printf("  . Use pdev: %lu\n", (unsigned long)use_pdev);
+            m5_exit_addr(0);
+        } else {
+            printf("  . Use pdev: %lu\n", (unsigned long)use_pdev);
+            if (failure_count == 0) {
+                m5_exit_addr(0);
+            }
+            return;
+        }
+    }
+}
+void pickle_setup( void )
+{
+    if (pdev == NULL) {
+        pdev = new PickleDeviceManager();
+    }
+
+    /* Get performance monitoring page */
+    if (PerfPage == NULL) {
+        PerfPage = (volatile uint64_t*) pdev->getPerfPagePtr();
+        printf("PerfPage: 0x%lx\n", (unsigned long)PerfPage);
+        assert(PerfPage != NULL);
+    }
 
     /* Read device capabilities */
     PickleDevicePrefetcherSpecs specs = pdev->getDevicePrefetcherSpecs();
@@ -794,7 +830,7 @@ void rank( int iteration )
 #ifdef SCHED_CYCLIC
     #pragma omp for schedule(static,1)
 #else
-    #pragma omp for schedule(dynamic)
+    #pragma omp for schedule(dynamic, 16384)
 #endif
     for( i=0; i< NUM_BUCKETS; i++ ) {
 
@@ -1099,16 +1135,32 @@ int main( int argc, char **argv )
 /*    Trial 0 = warmup rank(1) above                               */
 /*    Trial 1 = timed iterations below with prefetch hints         */
 /*  ============================================================  */
+#if ENABLE_GEM5==1
+    map_m5_mem();
+#endif /* ENABLE_GEM5 */
+
+#if ENABLE_PICKLEDEVICE==1
+    wait_till_pickle_device_available();
+#endif
+
+#if ENABLE_GEM5==1
+    //m5_exit_addr(0);  /* Exit 1: fake exit */
+#endif /* ENABLE_GEM5 */
+
+//#if ENABLE_PICKLEDEVICE==1
+//    pickle_setup();
+//#endif 
+
+#if ENABLE_GEM5==1
+    m5_exit_addr(0);  /* Exit 2: the pickle device is turned on after this */
+#endif /* ENABLE_GEM5 */
+
 #if ENABLE_PICKLEDEVICE==1
     pickle_setup();
 #endif
 
 #if ENABLE_GEM5==1
-    map_m5_mem();
-#endif /* ENABLE_GEM5 */
-
-#if ENABLE_GEM5==1
-    m5_exit_addr(0);  /* ROI Start */
+    m5_exit_addr(0);  /* Exit 3: ROI Start */
 #endif /* ENABLE_GEM5 */
 
 /*  Start timer  */
@@ -1128,7 +1180,7 @@ int main( int argc, char **argv )
     printf("ROI End\n");
 
 #if ENABLE_GEM5==1
-    m5_exit_addr(0);  /* ROI End */
+    m5_exit_addr(0);  /* Exit 4: ROI End */
 #endif /* ENABLE_GEM5 */
 
     timecounter = timer_read( 0 );

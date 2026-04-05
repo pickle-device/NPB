@@ -35,6 +35,11 @@
       integer(c_int)     :: pkl_prefetch_mode     = 0   ! 0=unk,1=single,2=bulk
       integer(c_int64_t) :: pkl_bulk_chunk_size   = 0
 
+! Module-level pointers for direct UCPage stores (no function call)
+      integer(c_int64_t), pointer, volatile :: pkl_ucpage_kern1 => null()
+      integer(c_int64_t), pointer, volatile :: pkl_ucpage_kern2 => null()
+
+ 
 !---------------------------------------------------------------------
 !  iso_c_binding interfaces to C hooks (pickle_cg_hooks.cpp)
 !
@@ -71,7 +76,15 @@
          subroutine pickle_cg_setup_ucpages_c()                      &
      &              bind(C, name='pickle_cg_setup_ucpages')
          end subroutine
+ 
+         subroutine pickle_cg_get_ucpage_ptrs_c(p1, p2)              &
+     &              bind(C, name='pickle_cg_get_ucpage_ptrs')
+            import :: c_ptr
+            type(c_ptr), intent(out) :: p1, p2
+         end subroutine
 
+!        DEPRECATED: prefer direct stores via pkl_ucpage_kern1/kern2.
+!        Kept for backward compatibility.
          subroutine pickle_cg_spmv_hint_c(kernel_id, row_0based)     &
      &              bind(C, name='pickle_cg_spmv_hint')
             import :: c_int, c_int64_t
@@ -95,6 +108,17 @@
      &              bind(C, name='pickle_cg_finalize')
          end subroutine
 
+         subroutine wait_till_pdev_available_c()                     &
+     &              bind(C, name='wait_till_pdev_available')
+         end subroutine
+
+         subroutine map_m5_mem_c()                              &
+     &              bind(C, name='map_m5_mem_hook')
+         end subroutine
+
+         subroutine m5_exit_c()                                      &
+     &              bind(C, name='m5_exit_hook')
+         end subroutine
       end interface
 
       contains
@@ -108,6 +132,39 @@
      &                         pkl_prefetch_distance,                 &
      &                         pkl_prefetch_mode,                     &
      &                         pkl_bulk_chunk_size)
+      end subroutine
+
+      subroutine wait_till_pdev_available()
+          implicit none
+          call wait_till_pdev_available_c()
+      end subroutine
+
+      subroutine map_m5_mem()
+          implicit none
+          call map_m5_mem_c()
+      end subroutine
+
+      subroutine m5_exit()
+          implicit none
+          call m5_exit_c()
+      end subroutine
+ 
+!---------------------------------------------------------------------
+!  pickle_cg_setup_ucpage_ptrs  —  convert C UCPage addresses to
+!                                   Fortran volatile pointers
+!
+!  Call this AFTER pickle_cg_setup_ucpages_c() has obtained the
+!  UCPage addresses on the C side.  This subroutine retrieves those
+!  raw addresses and converts them to Fortran pointers via
+!  c_f_pointer(), making them available as pkl_ucpage_kern1/kern2
+!  for direct volatile stores in the SpMV hot loop.
+!---------------------------------------------------------------------
+      subroutine pickle_cg_setup_ucpage_ptrs()
+         implicit none
+         type(c_ptr) :: cp1, cp2
+         call pickle_cg_get_ucpage_ptrs_c(cp1, cp2)
+         call c_f_pointer(cp1, pkl_ucpage_kern1)
+         call c_f_pointer(cp2, pkl_ucpage_kern2)
       end subroutine
 
 !---------------------------------------------------------------------
