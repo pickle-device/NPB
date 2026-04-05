@@ -193,7 +193,6 @@
       else
          class = 'U'
       endif
-
       write( *,1000 )
       write( *,1001 ) na
       write( *,1002 ) niter
@@ -273,8 +272,7 @@
 !---------------------------------------------------------------------
 !  The call to the conjugate gradient routine:
 !---------------------------------------------------------------------
-         call conj_grad ( rnorm )
-
+         call conj_grad ( rnorm , 0 )
 !---------------------------------------------------------------------
 !  zeta = shift + 1/(x.z)
 !  So, first: (x.z)
@@ -326,7 +324,6 @@
 
       write (*, 2000) timer_read(T_init)
  2000 format(' Initialization time = ',f15.3,' seconds')
-
 
 !=====================================================================
 !  PICKLE SETUP — after warmup, before timed ROI
@@ -402,7 +399,7 @@
 !  The call to the conjugate gradient routine:
 !---------------------------------------------------------------------
          if ( timeron ) call timer_start( T_conj_grad )
-         call conj_grad ( rnorm )
+         call conj_grad ( rnorm, 1 )
          if ( timeron ) call timer_stop( T_conj_grad )
 
 
@@ -560,7 +557,7 @@
 
 !---------------------------------------------------------------------
 !---------------------------------------------------------------------
-      subroutine conj_grad ( rnorm )
+      subroutine conj_grad ( rnorm, with_prefetch )
 !---------------------------------------------------------------------
 !---------------------------------------------------------------------
 
@@ -581,6 +578,7 @@
       integer   j
       integer   cgit, cgitmax
       integer(kz) k
+      integer, intent(in) :: with_prefetch
 
       double precision   d, sum, rho, rho0, alpha, beta, rnorm, suml
 
@@ -607,13 +605,14 @@
 !$omp&
 #endif
 
+
 !---------------------------------------------------------------------
 !  Pickle: signal thread start for performance monitoring
 !---------------------------------------------------------------------
 #if ENABLE_PICKLEDEVICE==1
       pkl_tid = 0
 !$    pkl_tid = omp_get_thread_num()
-      if (pkl_use_pdev .eq. 1) then
+      if (with_prefetch .eq. 1 .and. pkl_use_pdev .eq. 1) then
          call pickle_cg_perf_start_c(pkl_tid)
       endif
 #endif
@@ -678,7 +677,7 @@
 !    4. Prefetches corresponding p() cache lines
 !  ============================================================
 !
-if (pkl_use_pdev .eq. 1) then
+if (with_prefetch .eq. 1 .and. pkl_use_pdev .eq. 1) then
 !$omp do
          do j=1,lastrow-firstrow+1
             suml = 0.d0
@@ -693,7 +692,6 @@ else
 !$omp do
          do j=1,lastrow-firstrow+1
             suml = 0.d0
-            pkl_ucpage_kern1 = int(j - 1, c_int64_t)
             do k=rowstr(j),rowstr(j+1)-1
                suml = suml + a(k)*p(colidx(k))
             enddo
@@ -766,7 +764,7 @@ endif
 !  Runs once per outer CG iteration for the residual norm.
 !  ============================================================
 !
-if (pkl_use_pdev .eq. 1) then
+if (with_prefetch .eq. 1 .and. pkl_use_pdev .eq. 1) then
 !$omp do
       do j=1,lastrow-firstrow+1
          suml = 0.d0
@@ -803,7 +801,7 @@ endif
 !  Pickle: signal thread complete
 !---------------------------------------------------------------------
 #if ENABLE_PICKLEDEVICE==1
-      if (pkl_use_pdev .eq. 1) then
+      if (with_prefetch .eq. 1 .and. pkl_use_pdev .eq. 1) then
          call pickle_cg_perf_complete_c(pkl_tid)
       endif
 #endif
