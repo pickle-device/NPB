@@ -75,7 +75,7 @@ FLINKFLAGS = $(FFLAGS)
 #---------------------------------------------------------------------------
 # This is the C compiler used for C programs
 #---------------------------------------------------------------------------
-CC = gcc
+CC = g++
 # This links C programs; usually the same as ${CC}
 CLINK	= $(CC)
 
@@ -162,11 +162,7 @@ WTIME  = wtime.c
 #---------------------------------------------------------------------------
 # Path to the gem5 include directory
 #---------------------------------------------------------------------------
-GEM5_INCLUDE_DIR = ../../../../gem5/include
-
-
-#---------------------------------------------------------------------------
-# Path to the m5 abi for a specific ISA
-#---------------------------------------------------------------------------
-#
-GEM5_M5_ABI_DIR = ../../../../gem5/util/m5/src/abi/riscv
+M5OPS_HEADER_PATH=/home/ubuntu/gem5/include
+M5_BUILD_PATH=/home/ubuntu/gem5/util/m5/build/arm64/
+ENABLE_GEM5=1
+ENABLE_PICKLEDEVICE=1

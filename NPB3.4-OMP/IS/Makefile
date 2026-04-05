@@ -11,16 +11,19 @@ OBJS = is.o \
        ${COMMON}/c_timers.o \
        ${COMMON}/c_wtime.o
 
-ifeq (${M5_ANNOTATION}, 1)
-	OBJS += ${COMMON}/m5_interface.o ${COMMON}/m5op.o
+ifeq (${ENABLE_PICKLEDEVICE}, 1)
+	CXX_FLAGS += -I$(M5OPS_HEADER_PATH) -I$(M5OPS_HEADER_PATH)/../util/m5/src
+	CXX_FLAGS += -DENABLE_GEM5=1
+	LDFLAGS   += -lm5 -L$(M5_BUILD_PATH)/out/
+	LDFLAGS   += -DENABLE_GEM5=1
 endif
 
 ${PROGRAM}: config ${OBJS}
-	${CLINK} ${CLINKFLAGS} -o ${PROGRAM} ${OBJS} ${C_LIB}
+	${CLINK} ${CLINKFLAGS} -o ${PROGRAM} ${OBJS} ${C_LIB} ${CXX_FLAGS} ${LDFLAGS}
 
 .c.o:
-ifeq (${M5_ANNOTATION}, 1)
-	${CCOMPILE} -DM5_ANNOTATION $<
+ifeq (${ENABLE_PICKLEDEVICE}, 1)
+	${CCOMPILE} ${CXX_FLAGS} ${LDFLAGS} $<
 else
 	${CCOMPILE} $<
 endif
