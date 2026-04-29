@@ -376,6 +376,8 @@
 
          ! Obtain UCPage communication area
          call pickle_cg_setup_ucpages_c()
+         ! Bind Fortran volatile pointers to the UCPage addresses
+         call pickle_cg_setup_ucpage_ptrs()
       endif
 #endif
 
@@ -592,6 +594,7 @@
 
       data      cgitmax / 25 /
 
+      write(*,*) 'calling conj_grad'
 
       rho = 0.0d0
       sum = 0.0d0

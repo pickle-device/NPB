@@ -90,16 +90,10 @@ void m5_exit_hook() {
 
 void wait_till_pdev_available() {
     uint64_t failure_count = 0;
-    if (pdev == NULL) {
+    if (pdev == nullptr) {
         pdev = new PickleDeviceManager();
     }
 
-    /* Get performance monitoring page */
-    if (PerfPage == NULL) {
-        PerfPage = (volatile uint64_t*) pdev->getPerfPagePtr();
-        printf("PerfPage: 0x%lx\n", (unsigned long)PerfPage);
-        assert(PerfPage != NULL);
-    }
     while (true) {
         /* Read device capabilities */
         PickleDevicePrefetcherSpecs specs = pdev->getDevicePrefetcherSpecs();
