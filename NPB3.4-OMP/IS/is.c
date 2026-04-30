@@ -1169,10 +1169,16 @@ int main( int argc, char **argv )
     printf("ROI Start\n");
 
 /*  This is the main iteration */
+    /*
     for( iteration=1; iteration<=MAX_ITERATIONS; iteration++ )
     {
         if( CLASS != 'S' ) printf( "        %d\n", iteration );
         rank( iteration );
+    }
+    */
+    {
+        printf("Start iter 2\n");
+        rank(2);
     }
 
 
