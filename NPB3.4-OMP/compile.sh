@@ -4,7 +4,7 @@ rm -rf bin/
 mkdir bin
 
 WORKLOADS=("IS" "CG")
-CLASSES=("S" "W" "A" "B")
+CLASSES=("S" "W" "A" "B" "C")
 
 for workload in "${WORKLOADS[@]}"
 do
