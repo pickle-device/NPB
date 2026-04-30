@@ -863,12 +863,13 @@ void rank( int iteration )
          */
 #if ENABLE_PICKLEDEVICE==1
         if (use_pdev == 1) {
-            for ( k = m; k < bucket_ptrs[i]; k++ ) {
+            const INT_TYPE next_ptr = bucket_ptrs[i];
+            for ( k = m; k < next_ptr; k++ ) {
                 /* Send prefetch hint: address of current source element.
                  * The device reads key_buff_ptr2[k + prefetch_distance],
                  * gets the key value V, and prefetches key_buff_ptr[V]. */
-                if ( k + (INT_TYPE)prefetch_distance < bucket_ptrs[i] ) {
-                    *UCPage = (uint64_t)(&key_buff_ptr2[k]);
+                if ( k + prefetch_distance < next_ptr ) {
+                    *UCPage = (uint64_t)(k);
                 }
                 key_buff_ptr[key_buff_ptr2[k]]++;
             }
