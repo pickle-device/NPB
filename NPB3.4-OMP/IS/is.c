@@ -1121,7 +1121,17 @@ int main( int argc, char **argv )
 
 /*  Do one interation for free (i.e., untimed) to guarantee initialization of
     all data and code pages and respective tables */
+#if ENABLE_GEM5==1
+    map_m5_mem();
+#endif /* ENABLE_GEM5 */
+
+#if ENABLE_GEM5==1
+    m5_exit_addr(0);  /* Exit 1: ROI Start */
+#endif /* ENABLE_GEM5 */
     rank( 1 );
+#if ENABLE_GEM5==1
+    m5_exit_addr(0);  /* Exit 2: ROI End */
+#endif /* ENABLE_GEM5 */
 
 /*  Start verification counter */
     passed_verification = 0;
@@ -1136,26 +1146,6 @@ int main( int argc, char **argv )
 /*    Trial 0 = warmup rank(1) above                               */
 /*    Trial 1 = timed iterations below with prefetch hints         */
 /*  ============================================================  */
-#if ENABLE_GEM5==1
-    map_m5_mem();
-#endif /* ENABLE_GEM5 */
-
-#if ENABLE_PICKLEDEVICE==1
-    wait_till_pickle_device_available();
-#endif
-
-#if ENABLE_GEM5==1
-    //m5_exit_addr(0);  /* Exit 1: fake exit */
-#endif /* ENABLE_GEM5 */
-
-//#if ENABLE_PICKLEDEVICE==1
-//    pickle_setup();
-//#endif 
-
-#if ENABLE_GEM5==1
-    m5_exit_addr(0);  /* Exit 2: the pickle device is turned on after this */
-#endif /* ENABLE_GEM5 */
-
 #if ENABLE_PICKLEDEVICE==1
     pickle_setup();
 #endif

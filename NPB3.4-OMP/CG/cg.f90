@@ -272,6 +272,12 @@
 !---------------------------------------------------------------------
 !  The call to the conjugate gradient routine:
 !---------------------------------------------------------------------
+! Exit 1: cpu switching after this exit
+#if ENABLE_GEM5==1
+     call map_m5_mem()
+     call m5_exit()
+     !call wait_till_pdev_available()
+#endif
          call conj_grad ( rnorm , 0 )
 !---------------------------------------------------------------------
 !  zeta = shift + 1/(x.z)
@@ -338,12 +344,6 @@
 !    rowstr → colidx → p  (kernel 1: q = A·p)
 !    rowstr → colidx → z  (kernel 2: r = A·z)
 !=====================================================================
-! Exit 1: cpu switching after this exit
-#if ENABLE_GEM5==1
-     ! call m5_exit()
-     call map_m5_mem()
-     call wait_till_pdev_available()
-#endif
 ! Exit 2: pickle device is enabled after this exit
 #if ENABLE_GEM5==1
       call m5_exit()
