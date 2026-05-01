@@ -830,7 +830,7 @@ void rank( int iteration )
 #ifdef SCHED_CYCLIC
     #pragma omp for schedule(static,1)
 #else
-    #pragma omp for schedule(dynamic, 16384)
+    #pragma omp for schedule(dynamic, 65536)
 #endif
     for( i=0; i< NUM_BUCKETS; i++ ) {
 
