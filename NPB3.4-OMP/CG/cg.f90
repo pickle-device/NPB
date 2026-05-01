@@ -395,8 +395,8 @@
 !  Main Iteration for inverse power method
 !---->
 !---------------------------------------------------------------------
-      do it = 1, niter
-
+      !do it = 1, niter
+      do it = 1, 1 ! do 1 iter for benchmarking
 !---------------------------------------------------------------------
 !  The call to the conjugate gradient routine:
 !---------------------------------------------------------------------
