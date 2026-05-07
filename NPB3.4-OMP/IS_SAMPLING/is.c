@@ -219,10 +219,13 @@ int      passed_verification;
 /************************************/
 /* These are the three main arrays. */
 /* See SIZE_OF_BUFFERS def above    */
+/* Dynamically allocated to avoid   */
+/* AArch64 relocation overflows for */
+/* large classes (D, E).            */
 /************************************/
-INT_TYPE key_array[SIZE_OF_BUFFERS],
-         key_buff1[MAX_KEY],
-         key_buff2[SIZE_OF_BUFFERS],
+INT_TYPE *key_array,
+         *key_buff1,
+         *key_buff2,
          partial_verify_vals[TEST_ARRAY_SIZE],
          **key_buff1_aptr = NULL;
 
@@ -483,6 +486,21 @@ void *alloc_mem( size_t size )
         exit(1);
     }
     return p;
+}
+
+
+void alloc_arrays( void )
+{
+    key_array = (INT_TYPE *)alloc_mem(sizeof(INT_TYPE) * (size_t)SIZE_OF_BUFFERS);
+    key_buff1 = (INT_TYPE *)alloc_mem(sizeof(INT_TYPE) * (size_t)MAX_KEY);
+    key_buff2 = (INT_TYPE *)alloc_mem(sizeof(INT_TYPE) * (size_t)SIZE_OF_BUFFERS);
+}
+
+void free_arrays( void )
+{
+    free(key_array);
+    free(key_buff1);
+    free(key_buff2);
 }
 
 void alloc_key_buff( void )
@@ -1123,6 +1141,10 @@ int main( int argc, char **argv )
     double          timecounter;
 
 
+/*  Allocate main arrays on heap (avoids AArch64 BSS relocation issues) */
+    alloc_arrays();
+
+
 /*  Initialize timers  */
     timer_on = check_timer_flag();
 
@@ -1237,6 +1259,10 @@ int main( int argc, char **argv )
     if (timer_on) timer_stop( 2 );
 
     if (timer_on) timer_stop( 3 );
+
+
+/*  Free main arrays (avoid AArch64 BSS relocation check on exit)  */
+    free_arrays();
 
 /*  Cleanup Pickle device  */
 #if ENABLE_PICKLEDEVICE==1
