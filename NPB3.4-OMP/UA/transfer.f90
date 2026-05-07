@@ -26,6 +26,10 @@
 !------------------------------------------------------------------
 
       use ua_data
+#if ENABLE_PICKLEDEVICE==1
+      use iso_c_binding
+      use pickle_ua_mod
+#endif
       implicit none
 
       double precision tmor(*),tx(*), tmp(lx1,lx1,2)
@@ -40,6 +44,32 @@
 !$OMP& ig3,ig2,ig1,nnje,il4,il3,il2,il1,iface,ie,tmp)
       do ie=1,nelt
         do iface=1,nsides
+
+! ============================================================
+!  PICKLE PREFETCH HINT — transf (idel→pdiff and idmo→pmorx)
+!
+!  For each (ie, iface), idel(:,:,iface,ie) is iterated as
+!  lx1*lx1 = 25 consecutive ints, and idmo(:,:,:,:,iface,ie)
+!  as lx1*lx1*lnje*lnje = 100 consecutive ints.  The 0-based
+!  starting offsets are sent to UCPage_kern1 (idel) and
+!  UCPage_kern2 (idmo); the device reads ahead by
+!  prefetch_distance entries and prefetches the corresponding
+!  pdiff/pmorx cache lines.
+!
+!  Hints fire only when pkl_send_hints is .true., set by
+!  diffusion() around the CG inner-loop calls so we don't
+!  prefetch into the wrong target arrays for transf calls
+!  outside that loop (e.g. transf(tmort,ta1) in the main step).
+! ============================================================
+#if ENABLE_PICKLEDEVICE==1
+          if (pkl_send_hints .and. pkl_use_pdev .eq. 1) then
+             pkl_ucpage_kern1 = int(((ie-1)*nsides + (iface-1))         &
+     &                              * lx1 * lx1, c_int64_t)
+             pkl_ucpage_kern2 = int(((ie-1)*nsides + (iface-1))         &
+     &                              * lx1 * lx1 * lnje * lnje,          &
+     &                              c_int64_t)
+          endif
+#endif
 
 !.........get the collocation point index of the four local corners on the
 !         face iface of element ie
@@ -263,6 +293,10 @@
 !------------------------------------------------------------------
 
       use ua_data
+#if ENABLE_PICKLEDEVICE==1
+      use iso_c_binding
+      use pickle_ua_mod
+#endif
       implicit none
 
       double precision third
@@ -287,11 +321,33 @@
 !$OMP DO
       do ie=1,nelt
         do iface=1,nsides
+
+! ============================================================
+!  PICKLE PREFETCH HINT — transfb (idel→pdiffp and idmo→ppmor)
+!
+!  Symmetric to transf: send 0-based starting offsets into
+!  idel and idmo for the current (ie, iface).  The device
+!  reads ahead and prefetches the corresponding pdiffp/ppmor
+!  cache lines.
+!
+!  Hints fire only when pkl_send_hints is .true., set by
+!  diffusion() around the CG inner-loop transfb call.
+! ============================================================
+#if ENABLE_PICKLEDEVICE==1
+          if (pkl_send_hints .and. pkl_use_pdev .eq. 1) then
+             pkl_ucpage_kern3 = int(((ie-1)*nsides + (iface-1))         &
+     &                              * lx1 * lx1, c_int64_t)
+             pkl_ucpage_kern4 = int(((ie-1)*nsides + (iface-1))         &
+     &                              * lx1 * lx1 * lnje * lnje,          &
+     &                              c_int64_t)
+          endif
+#endif
+
 !.........nnje=1 for conforming faces, nnje=2 for nonconforming faces
           if(cbc(iface,ie).eq.3) then
             nnje=2
           else
-            nnje=1 
+            nnje=1
           end if
 
 !.........get collocation point index of four local corners on the face

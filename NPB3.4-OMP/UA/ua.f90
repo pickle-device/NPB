@@ -44,6 +44,10 @@
       program ua
 
       use ua_data
+      use iso_c_binding
+#if ENABLE_PICKLEDEVICE==1
+      use pickle_ua_mod
+#endif
       implicit none
 
       integer          step, ie,iside,i,j, fstatus,k
@@ -56,6 +60,21 @@
 
       double precision t2, trecs(t_last)
       character t_names(t_last)*10
+
+#if ENABLE_PICKLEDEVICE==1
+!---------------------------------------------------------------------
+!  Pickle setup variables
+!     idel  : (lx1, lx1, nsides, lelt)               integer
+!     idmo  : (lx1, lx1, lnje, lnje, nsides, lelt)   integer
+!     pdiff/pdiffp : (lx1, lx1, lx1, lelt)           double precision
+!     pmorx/ppmor  : (lmor)                          double precision
+!---------------------------------------------------------------------
+      integer(c_int)     :: pkl_kid
+      integer(c_int64_t) :: pkl_idel_n, pkl_idel_esz
+      integer(c_int64_t) :: pkl_idmo_n, pkl_idmo_esz
+      integer(c_int64_t) :: pkl_pdiff_n, pkl_pdiff_esz
+      integer(c_int64_t) :: pkl_pmor_n,  pkl_pmor_esz
+#endif
 
 !---------------------------------------------------------------------
 !     Read input file (if it exists), else take
@@ -166,10 +185,82 @@
           do i = 1, t_last
              if (i.ne.t_init) call timer_clear(i)
           end do
-#ifdef M5_ANNOTATION
-          call m5_work_begin_interface
+
+!=====================================================================
+!  PICKLE SETUP — after warmup (step==0), before timed ROI
+!
+!  This mirrors the CG benchmark's two-trial structure:
+!    Trial 0 = step==0 untimed warmup (above this block)
+!    Trial 1 = step>=1 timed iteration with prefetch hints
+!
+!  Arrays are fully allocated and populated; their addresses are
+!  stable (idel/idmo/pdiff/pdiffp/pmorx/ppmor are all allocated
+!  once in alloc_space and never reallocated).  We register four
+!  kernels covering the diffusion CG inner loop:
+!
+!    Kernel 1: idel → pdiff   (transf  scatter target)
+!    Kernel 2: idmo → pmorx   (transf  gather  source)
+!    Kernel 3: idel → pdiffp  (transfb gather  source)
+!    Kernel 4: idmo → ppmor   (transfb scatter target)
+!=====================================================================
+! Exit 2 (ARM/gem5): pickle device is enabled after this exit
+#if ENABLE_GEM5==1
+          call map_m5_mem()
+          call m5_exit()
 #endif
-          call timer_start(1)          
+#if ENABLE_PICKLEDEVICE==1
+          call pickle_ua_device_init()
+
+          if (pkl_use_pdev .eq. 1) then
+
+             pkl_idel_n    = int(size(idel),  c_int64_t)
+             pkl_idel_esz  = int(storage_size(idel(1,1,1,1))/8,        &
+     &                            c_int64_t)
+             pkl_idmo_n    = int(size(idmo),  c_int64_t)
+             pkl_idmo_esz  = int(storage_size(idmo(1,1,1,1,1,1))/8,    &
+     &                            c_int64_t)
+             pkl_pdiff_n   = int(size(pdiff), c_int64_t)
+             pkl_pdiff_esz = int(storage_size(pdiff(1,1,1,1))/8,       &
+     &                            c_int64_t)
+             pkl_pmor_n    = int(size(pmorx), c_int64_t)
+             pkl_pmor_esz  = int(storage_size(pmorx(1))/8, c_int64_t)
+
+             ! Kernel 1: idel → pdiff   (transf  scatter target)
+             pkl_kid = 1
+             call pickle_ua_setup_idel_kernel_c(pkl_kid,               &
+     &            c_loc(idel(1,1,1,1)),  pkl_idel_n,  pkl_idel_esz,    &
+     &            c_loc(pdiff(1,1,1,1)), pkl_pdiff_n, pkl_pdiff_esz)
+
+             ! Kernel 2: idmo → pmorx   (transf  gather  source)
+             pkl_kid = 2
+             call pickle_ua_setup_idmo_kernel_c(pkl_kid,               &
+     &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,  &
+     &            c_loc(pmorx(1)),          pkl_pmor_n, pkl_pmor_esz)
+
+             ! Kernel 3: idel → pdiffp  (transfb gather  source)
+             pkl_kid = 3
+             call pickle_ua_setup_idel_kernel_c(pkl_kid,               &
+     &            c_loc(idel(1,1,1,1)),   pkl_idel_n,  pkl_idel_esz,   &
+     &            c_loc(pdiffp(1,1,1,1)), pkl_pdiff_n, pkl_pdiff_esz)
+
+             ! Kernel 4: idmo → ppmor   (transfb scatter target)
+             pkl_kid = 4
+             call pickle_ua_setup_idmo_kernel_c(pkl_kid,               &
+     &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,  &
+     &            c_loc(ppmor(1)),          pkl_pmor_n, pkl_pmor_esz)
+
+             ! Obtain UCPage communication area
+             call pickle_ua_setup_ucpages_c()
+             call pickle_ua_setup_ucpage_ptrs()
+          endif
+#endif
+
+! Exit 3 (ARM/gem5): ROI Start
+#if ENABLE_GEM5==1
+          call m5_exit()
+#endif
+          write(*,*) 'ROI Start'
+          call timer_start(1)
         endif
 
 !.......advance the convection step 
@@ -243,8 +334,11 @@
 
       call timer_stop(1)
 
-#ifdef M5_ANNOTATION
-      call m5_work_end_interface
+      write(*,*) 'ROI End'
+
+! Exit 4 (ARM/gem5): ROI End
+#if ENABLE_GEM5==1
+      call m5_exit()
 #endif
 
       tmax = timer_read(1)
@@ -287,5 +381,12 @@
 
  999  continue
 
-      end 
+!---------------------------------------------------------------------
+!  Pickle cleanup
+!---------------------------------------------------------------------
+#if ENABLE_PICKLEDEVICE==1
+      call pickle_ua_device_finalize()
+#endif
+
+      end
 

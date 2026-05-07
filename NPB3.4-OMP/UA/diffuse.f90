@@ -1,10 +1,13 @@
 !---------------------------------------------------------------------
-      subroutine diffusion(ifmortar)      
+      subroutine diffusion(ifmortar)
 !---------------------------------------------------------------------
 !     advance the diffusion term using CG iterations
 !---------------------------------------------------------------------
 
       use ua_data
+#if ENABLE_PICKLEDEVICE==1
+      use pickle_ua_mod
+#endif
       implicit none
 
       double precision  rho_aux, rho1, rho2, beta, cona
@@ -101,20 +104,42 @@
 !.......compute matrix vector product: (theta pm) in the specification
 
         if (timeron) call timer_start(t_transf)
-        call transf(pmorx,pdiff) 
+! ============================================================
+!  Gate Pickle hints to this transf call only.  Kernels 1 & 2
+!  are registered for (idel→pdiff) and (idmo→pmorx), which
+!  matches the (pmorx, pdiff) arguments here.
+! ============================================================
+#if ENABLE_PICKLEDEVICE==1
+        pkl_send_hints = (pkl_use_pdev .eq. 1)
+#endif
+        call transf(pmorx,pdiff)
+#if ENABLE_PICKLEDEVICE==1
+        pkl_send_hints = .false.
+#endif
         if (timeron) call timer_stop(t_transf)
 
 !.......compute pdiffp which is (A theta pm) in the specification
-!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ie) 
+!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ie)
         do ie=1, nelt
           call laplacian(pdiffp(1,1,1,ie),pdiff(1,1,1,ie),size_e(ie))
         end do
 !$OMP END PARALLEL DO
 
-!.......compute ppmor which will be used to compute (thetaT A theta pm) 
+!.......compute ppmor which will be used to compute (thetaT A theta pm)
 !       in the specification
         if (timeron) call timer_start(t_transfb)
-        call transfb(ppmor,pdiffp) 
+! ============================================================
+!  Gate Pickle hints to this transfb call only.  Kernels 3 & 4
+!  are registered for (idel→pdiffp) and (idmo→ppmor), which
+!  matches the (ppmor, pdiffp) arguments here.
+! ============================================================
+#if ENABLE_PICKLEDEVICE==1
+        pkl_send_hints = (pkl_use_pdev .eq. 1)
+#endif
+        call transfb(ppmor,pdiffp)
+#if ENABLE_PICKLEDEVICE==1
+        pkl_send_hints = .false.
+#endif
         if (timeron) call timer_stop(t_transfb)
  
 !.......apply boundary condition
