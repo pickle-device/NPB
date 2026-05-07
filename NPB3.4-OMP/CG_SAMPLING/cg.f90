@@ -116,16 +116,6 @@
       integer :: sampling_site, starting_iter, warmup_iters
       character(len=256) :: arg_val
 
-#if ENABLE_PICKLEDEVICE==1
-!---------------------------------------------------------------------
-!  Pickle setup variables
-!---------------------------------------------------------------------
-      integer(c_int)     :: pkl_kid
-      integer(c_int64_t) :: pkl_rowstr_n, pkl_rowstr_esz
-      integer(c_int64_t) :: pkl_colidx_n, pkl_colidx_esz
-      integer(c_int64_t) :: pkl_vec_n, pkl_vec_esz
-#endif
-
       sampling_site = 1
       starting_iter = 1
       if (command_argument_count() >= 3) then
@@ -295,7 +285,8 @@
      call m5_exit()
      !call wait_till_pdev_available()
 #endif
-         call conj_grad ( rnorm , 0 )
+         call conj_grad ( rnorm , 0, sampling_site,                   &
+     &                      starting_iter, warmup_iters )
 !---------------------------------------------------------------------
 !  zeta = shift + 1/(x.z)
 !  So, first: (x.z)
@@ -363,7 +354,8 @@
 !  The call to the conjugate gradient routine:
 !---------------------------------------------------------------------
          if ( timeron ) call timer_start( T_conj_grad )
-         call conj_grad ( rnorm, 1 )
+         call conj_grad ( rnorm, 1, sampling_site,                    &
+     &                      starting_iter, warmup_iters )
          if ( timeron ) call timer_stop( T_conj_grad )
 
 
@@ -516,7 +508,9 @@
 
 !---------------------------------------------------------------------
 !---------------------------------------------------------------------
-      subroutine conj_grad ( rnorm, with_prefetch )
+      subroutine conj_grad ( rnorm, with_prefetch,                    &
+     &                         sampling_site, starting_iter,           &
+     &                         warmup_iters )
 !---------------------------------------------------------------------
 !---------------------------------------------------------------------
 
@@ -538,6 +532,7 @@
       integer   cgit, cgitmax
       integer(kz) k
       integer, intent(in) :: with_prefetch
+      integer, intent(in) :: sampling_site, starting_iter, warmup_iters
       integer current_starting_iter
 
       double precision   d, sum, rho, rho0, alpha, beta, rnorm, suml
@@ -546,6 +541,10 @@
       integer(c_int)     :: pkl_kid_local
       integer(c_int64_t) :: pkl_row_hint
       integer(c_int)     :: pkl_tid
+      integer(c_int)     :: pkl_kid
+      integer(c_int64_t) :: pkl_rowstr_n, pkl_rowstr_esz
+      integer(c_int64_t) :: pkl_colidx_n, pkl_colidx_esz
+      integer(c_int64_t) :: pkl_vec_n, pkl_vec_esz
 !$    integer omp_get_thread_num
 !$    external omp_get_thread_num
 #endif
