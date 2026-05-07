@@ -30,6 +30,10 @@ IS: is
 is: header	       
 	cd IS; $(MAKE) CLASS=$(CLASS)
 
+IS_SAMPLING: is_sampling
+is_sampling: header
+	cd IS_SAMPLING; $(MAKE) CLASS=$(CLASS)
+
 CG: cg		       
 cg: header	       
 	cd CG; $(MAKE) CLASS=$(CLASS)
