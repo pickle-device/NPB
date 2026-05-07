@@ -113,6 +113,9 @@
 !$    integer   omp_get_max_threads
 !$    external  omp_get_max_threads
 
+      integer :: sampling_site, starting_iter, warmup_iters
+      character(len=256) :: arg_val
+
 #if ENABLE_PICKLEDEVICE==1
 !---------------------------------------------------------------------
 !  Pickle setup variables
@@ -122,6 +125,20 @@
       integer(c_int64_t) :: pkl_colidx_n, pkl_colidx_esz
       integer(c_int64_t) :: pkl_vec_n, pkl_vec_esz
 #endif
+
+      sampling_site = 1
+      starting_iter = 1
+      if (command_argument_count() >= 3) then
+         call get_command_argument(1, arg_val)
+         read(arg_val, *) sampling_site
+         call get_command_argument(2, arg_val)
+         read(arg_val, *) starting_iter
+         call get_command_argument(3, arg_val)
+         read(arg_val, *) warmup_iters
+      end if
+      write(*,*) 'sampling_site = ', sampling_site
+      write(*,*) 'starting_iter = ', starting_iter
+      write(*,*) 'warmup_iters  = ', warmup_iters
 
       do i = 1, T_last
          call timer_clear( i )
@@ -331,61 +348,6 @@
       write (*, 2000) timer_read(T_init)
  2000 format(' Initialization time = ',f15.3,' seconds')
 
-!=====================================================================
-!  PICKLE SETUP — after warmup, before timed ROI
-!
-!  This mirrors the graph benchmarks' two-trial structure:
-!    Trial 0 = untimed warmup conj_grad above
-!    Trial 1 = timed iterations below with prefetch hints
-!
-!  Arrays are fully allocated and populated; their addresses are
-!  stable.  We register two SpMV kernels describing the CSR
-!  indirection chain:
-!    rowstr → colidx → p  (kernel 1: q = A·p)
-!    rowstr → colidx → z  (kernel 2: r = A·z)
-!=====================================================================
-! Exit 2: pickle device is enabled after this exit
-#if ENABLE_GEM5==1
-      call m5_exit()
-#endif
-#if ENABLE_PICKLEDEVICE==1
-      call pickle_cg_device_init()
-
-      if (pkl_use_pdev .eq. 1) then
-
-         pkl_rowstr_n   = int(na + 1, c_int64_t)
-         pkl_rowstr_esz = int(storage_size(rowstr(1)) / 8, c_int64_t)
-         pkl_colidx_n   = int(nz, c_int64_t)
-         pkl_colidx_esz = int(storage_size(colidx(1)) / 8, c_int64_t)
-         pkl_vec_n      = int(na + 2, c_int64_t)
-         pkl_vec_esz    = int(storage_size(p(1)) / 8, c_int64_t)
-
-         ! Kernel 1: q = A * p
-         pkl_kid = 1
-         call pickle_cg_setup_spmv_c(pkl_kid,                         &
-     &        c_loc(rowstr(1)), pkl_rowstr_n, pkl_rowstr_esz,         &
-     &        c_loc(colidx(1)), pkl_colidx_n, pkl_colidx_esz,        &
-     &        c_loc(p(1)),      pkl_vec_n,    pkl_vec_esz)
-
-         ! Kernel 2: r = A * z
-         pkl_kid = 2
-         call pickle_cg_setup_spmv_c(pkl_kid,                         &
-     &        c_loc(rowstr(1)), pkl_rowstr_n, pkl_rowstr_esz,         &
-     &        c_loc(colidx(1)), pkl_colidx_n, pkl_colidx_esz,        &
-     &        c_loc(z(1)),      pkl_vec_n,    pkl_vec_esz)
-
-         ! Obtain UCPage communication area
-         call pickle_cg_setup_ucpages_c()
-         ! Bind Fortran volatile pointers to the UCPage addresses
-         call pickle_cg_setup_ucpage_ptrs()
-      endif
-#endif
-
-! Exit 3: ROI Start
-#if ENABLE_GEM5==1
-      call m5_exit()
-#endif
-
       call timer_start( T_bench )
 
       write(*,*) 'ROI Start'
@@ -450,11 +412,6 @@
       call timer_stop( T_bench )
 
       write(*,*) 'ROI End'
-
-! Exit 4: ROI End
-#if ENABLE_GEM5==1
-      call m5_exit()
-#endif
 
 !---------------------------------------------------------------------
 !  End of timed section
@@ -581,6 +538,7 @@
       integer   cgit, cgitmax
       integer(kz) k
       integer, intent(in) :: with_prefetch
+      integer current_starting_iter
 
       double precision   d, sum, rho, rho0, alpha, beta, rnorm, suml
 
@@ -592,7 +550,7 @@
 !$    external omp_get_thread_num
 #endif
 
-      data      cgitmax / 25 /
+      data      cgitmax / 1 /
 
       write(*,*) 'calling conj_grad'
 
@@ -673,9 +631,132 @@
 !    4. Prefetches corresponding p() cache lines
 !  ============================================================
 !
+
+if (sampling_site == 1) then
+   ! Execute the first starting_iter iterations normally
+   ! Then use Pickle for the remaining iterations
+   !$omp do
+   do j=1,starting_iter-1
+      ! Normal execution
+      suml = 0.d0
+      do k=rowstr(j),rowstr(j+1)-1
+          suml = suml + a(k)*p(colidx(k))
+      enddo
+      q(j) = suml
+   enddo
+   !$omp end do
+endif
+
+!---------------------------------------------------------------------
+! First exit: cpu switching after this exit; first checkpoint
+!---------------------------------------------------------------------
+#if ENABLE_GEM5==1
+if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+   !$omp master
+      call map_m5_mem()
+      call m5_exit()
+   !$omp end master
+   !$omp barrier
+endif
+#endif
+
+!---------------------------------------------------------------------
+! Setup pickle device if needed
+!---------------------------------------------------------------------
+
+!=====================================================================
+!  PICKLE SETUP — after warmup, before timed ROI
+!
+!  This mirrors the graph benchmarks' two-trial structure:
+!    Trial 0 = untimed warmup conj_grad above
+!    Trial 1 = timed iterations below with prefetch hints
+!
+!  Arrays are fully allocated and populated; their addresses are
+!  stable.  We register two SpMV kernels describing the CSR
+!  indirection chain:
+!    rowstr → colidx → p  (kernel 1: q = A·p)
+!    rowstr → colidx → z  (kernel 2: r = A·z)
+!=====================================================================
+#if ENABLE_PICKLEDEVICE==1
+   !$omp master
+   if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+      call pickle_cg_device_init()
+
+      if (pkl_use_pdev .eq. 1) then
+
+         pkl_rowstr_n   = int(na + 1, c_int64_t)
+         pkl_rowstr_esz = int(storage_size(rowstr(1)) / 8, c_int64_t)
+         pkl_colidx_n   = int(nz, c_int64_t)
+         pkl_colidx_esz = int(storage_size(colidx(1)) / 8, c_int64_t)
+         pkl_vec_n      = int(na + 2, c_int64_t)
+         pkl_vec_esz    = int(storage_size(p(1)) / 8, c_int64_t)
+
+         ! Kernel 1: q = A * p
+         pkl_kid = 1
+         call pickle_cg_setup_spmv_c(pkl_kid,                         &
+     &        c_loc(rowstr(1)), pkl_rowstr_n, pkl_rowstr_esz,         &
+     &        c_loc(colidx(1)), pkl_colidx_n, pkl_colidx_esz,        &
+     &        c_loc(p(1)),      pkl_vec_n,    pkl_vec_esz)
+
+         ! Kernel 2: r = A * z
+         pkl_kid = 2
+         call pickle_cg_setup_spmv_c(pkl_kid,                         &
+     &        c_loc(rowstr(1)), pkl_rowstr_n, pkl_rowstr_esz,         &
+     &        c_loc(colidx(1)), pkl_colidx_n, pkl_colidx_esz,        &
+     &        c_loc(z(1)),      pkl_vec_n,    pkl_vec_esz)
+
+         ! Obtain UCPage communication area
+         call pickle_cg_setup_ucpages_c()
+         ! Bind Fortran volatile pointers to the UCPage addresses
+         call pickle_cg_setup_ucpage_ptrs()
+      endif
+   endif
+   !$omp end master
+   !$omp barrier
+#endif
+
+!---------------------------------------------------------------------
+! Warm up cores
+!---------------------------------------------------------------------
+if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+   !$omp do
+   do j=starting_iter,starting_iter+warmup_iters-1
+      suml = 0.d0
+      do k=rowstr(j),rowstr(j+1)-1
+          suml = suml + a(k)*p(colidx(k))
+      enddo
+      q(j) = suml
+   enddo
+   !$omp end do
+endif
+
+!---------------------------------------------------------------------
+! Second exit: done warmup the cores; second checkpoint
+!---------------------------------------------------------------------
+#if ENABLE_GEM5==1
+if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+   !$omp master
+      call m5_exit()
+   !$omp end master
+   !$omp barrier
+endif
+#endif
+
+!---------------------------------------------------------------------
+! Execute benchmark iterations
+! gem5 is supposed to run for a fixed amount of time, so we don't need
+! to have the third exit!
+!---------------------------------------------------------------------
+
+if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+   current_starting_iter = starting_iter + warmup_iters
+else
+   current_starting_iter = 1
+endif
+
 if (with_prefetch .eq. 1 .and. pkl_use_pdev .eq. 1) then
 !$omp do
-         do j=1,lastrow-firstrow+1
+         do j=current_starting_iter,lastrow-firstrow+1
             suml = 0.d0
             pkl_ucpage_kern1 = int(j - 1, c_int64_t)
             do k=rowstr(j),rowstr(j+1)-1
@@ -686,7 +767,7 @@ if (with_prefetch .eq. 1 .and. pkl_use_pdev .eq. 1) then
 !$omp end do
 else
 !$omp do
-         do j=1,lastrow-firstrow+1
+         do j=current_starting_iter,lastrow-firstrow+1
             suml = 0.d0
             do k=rowstr(j),rowstr(j+1)-1
                suml = suml + a(k)*p(colidx(k))
@@ -760,9 +841,132 @@ endif
 !  Runs once per outer CG iteration for the residual norm.
 !  ============================================================
 !
+
+if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+   ! Execute the first starting_iter iterations normally
+   ! Then use Pickle for the remaining iterations
+   !$omp do
+   do j=1,starting_iter-1
+      ! Normal execution
+      suml = 0.d0
+      do k=rowstr(j),rowstr(j+1)-1
+            suml = suml + a(k)*z(colidx(k))
+      enddo
+      r(j) = suml
+   enddo
+   !$omp end do
+endif
+
+!---------------------------------------------------------------------
+! First exit: cpu switching after this exit; first checkpoint
+!---------------------------------------------------------------------
+#if ENABLE_GEM5==1
+if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+   !$omp master
+      call map_m5_mem()
+      call m5_exit()
+   !$omp end master
+   !$omp barrier
+endif
+#endif
+
+!---------------------------------------------------------------------
+! Setup pickle device if needed
+!---------------------------------------------------------------------
+
+!=====================================================================
+!  PICKLE SETUP — after warmup, before timed ROI
+!
+!  This mirrors the graph benchmarks' two-trial structure:
+!    Trial 0 = untimed warmup conj_grad above
+!    Trial 1 = timed iterations below with prefetch hints
+!
+!  Arrays are fully allocated and populated; their addresses are
+!  stable.  We register two SpMV kernels describing the CSR
+!  indirection chain:
+!    rowstr → colidx → p  (kernel 1: q = A·p)
+!    rowstr → colidx → z  (kernel 2: r = A·z)
+!=====================================================================
+#if ENABLE_PICKLEDEVICE==1
+   !$omp master
+   if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+      call pickle_cg_device_init()
+
+      if (pkl_use_pdev .eq. 1) then
+
+         pkl_rowstr_n   = int(na + 1, c_int64_t)
+         pkl_rowstr_esz = int(storage_size(rowstr(1)) / 8, c_int64_t)
+         pkl_colidx_n   = int(nz, c_int64_t)
+         pkl_colidx_esz = int(storage_size(colidx(1)) / 8, c_int64_t)
+         pkl_vec_n      = int(na + 2, c_int64_t)
+         pkl_vec_esz    = int(storage_size(p(1)) / 8, c_int64_t)
+
+         ! Kernel 1: q = A * p
+         pkl_kid = 1
+         call pickle_cg_setup_spmv_c(pkl_kid,                         &
+     &        c_loc(rowstr(1)), pkl_rowstr_n, pkl_rowstr_esz,         &
+     &        c_loc(colidx(1)), pkl_colidx_n, pkl_colidx_esz,        &
+     &        c_loc(p(1)),      pkl_vec_n,    pkl_vec_esz)
+
+         ! Kernel 2: r = A * z
+         pkl_kid = 2
+         call pickle_cg_setup_spmv_c(pkl_kid,                         &
+     &        c_loc(rowstr(1)), pkl_rowstr_n, pkl_rowstr_esz,         &
+     &        c_loc(colidx(1)), pkl_colidx_n, pkl_colidx_esz,        &
+     &        c_loc(z(1)),      pkl_vec_n,    pkl_vec_esz)
+
+         ! Obtain UCPage communication area
+         call pickle_cg_setup_ucpages_c()
+         ! Bind Fortran volatile pointers to the UCPage addresses
+         call pickle_cg_setup_ucpage_ptrs()
+      endif
+   endif
+   !$omp end master
+   !$omp barrier
+#endif
+
+!---------------------------------------------------------------------
+! Warm up cores
+!---------------------------------------------------------------------
+if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+   !$omp do
+   do j=starting_iter,starting_iter+warmup_iters-1
+      suml = 0.d0
+      do k=rowstr(j),rowstr(j+1)-1
+            suml = suml + a(k)*z(colidx(k))
+      enddo
+      r(j) = suml
+   enddo
+   !$omp end do
+endif
+
+!---------------------------------------------------------------------
+! Second exit: done warmup the cores; second checkpoint
+!---------------------------------------------------------------------
+#if ENABLE_GEM5==1
+if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+   !$omp master
+      call m5_exit()
+   !$omp end master
+   !$omp barrier
+endif
+#endif
+
+!---------------------------------------------------------------------
+! Execute benchmark iterations
+! gem5 is supposed to run for a fixed amount of time, so we don't need
+! to have the third exit!
+!---------------------------------------------------------------------
+
+if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+   current_starting_iter = starting_iter + warmup_iters
+else
+   current_starting_iter = 1
+endif
+
 if (with_prefetch .eq. 1 .and. pkl_use_pdev .eq. 1) then
 !$omp do
-      do j=1,lastrow-firstrow+1
+      do j=current_starting_iter,lastrow-firstrow+1
          suml = 0.d0
          pkl_ucpage_kern2 = int(j - 1, c_int64_t)
          do k=rowstr(j),rowstr(j+1)-1
@@ -773,7 +977,7 @@ if (with_prefetch .eq. 1 .and. pkl_use_pdev .eq. 1) then
 !$omp end do
 else
 !$omp do
-      do j=1,lastrow-firstrow+1
+      do j=current_starting_iter,lastrow-firstrow+1
          suml = 0.d0
          do k=rowstr(j),rowstr(j+1)-1
             suml = suml + a(k)*z(colidx(k))
