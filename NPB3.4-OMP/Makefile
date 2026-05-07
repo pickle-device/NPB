@@ -34,6 +34,10 @@ CG: cg
 cg: header	       
 	cd CG; $(MAKE) CLASS=$(CLASS)
 
+CG_SAMPLING: cg_sampling
+cg_sampling: header
+	cd CG_SAMPLING; $(MAKE) CLASS=$(CLASS)
+
 EP: ep		       
 ep: header	       
 	cd EP; $(MAKE) CLASS=$(CLASS)
