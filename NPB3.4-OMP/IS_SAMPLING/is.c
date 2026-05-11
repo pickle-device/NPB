@@ -240,8 +240,8 @@ INT_TYPE **bucket_size,
 /* Pickle Prefetcher globals        */
 /************************************/
 #if ENABLE_PICKLEDEVICE==1
-volatile uint64_t* UCPage = NULL;
-volatile uint64_t* PerfPage = NULL;
+uint64_t* UCPage = NULL;
+uint64_t* PerfPage = NULL;
 
 const uint64_t PERF_THREAD_START = 0;
 const uint64_t PERF_THREAD_COMPLETE = 1;
@@ -635,7 +635,7 @@ void wait_till_pickle_device_available( void )
 
     /* Get performance monitoring page */
     if (PerfPage == NULL) {
-        PerfPage = (volatile uint64_t*) pdev->getPerfPagePtr();
+        PerfPage = (uint64_t*) pdev->getPerfPagePtr();
         printf("PerfPage: 0x%lx\n", (unsigned long)PerfPage);
         assert(PerfPage != NULL);
     }
@@ -665,7 +665,7 @@ void pickle_setup( void )
 
     /* Get performance monitoring page */
     if (PerfPage == NULL) {
-        PerfPage = (volatile uint64_t*) pdev->getPerfPagePtr();
+        PerfPage = (uint64_t*) pdev->getPerfPagePtr();
         printf("PerfPage: 0x%lx\n", (unsigned long)PerfPage);
         assert(PerfPage != NULL);
     }
@@ -731,7 +731,7 @@ void pickle_setup( void )
         printf("Sent is_ranking_kernel job\n");
 
         /* Get the uncacheable communication page */
-        UCPage = (volatile uint64_t*) pdev->getUCPagePtr(0);
+        UCPage = (uint64_t*) pdev->getUCPagePtr(0);
         printf("UCPage: 0x%lx\n", (unsigned long)UCPage);
         assert(UCPage != NULL);
     }

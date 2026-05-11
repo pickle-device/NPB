@@ -63,9 +63,9 @@
 
 #if ENABLE_PICKLEDEVICE==1
 static PickleDeviceManager* pdev           = nullptr;
-static volatile uint64_t*   UCPage_kern1   = nullptr;   /* SpMV q = A·p   */
-static volatile uint64_t*   UCPage_kern2   = nullptr;   /* SpMV r = A·z   */
-static volatile uint64_t*   PerfPage       = nullptr;
+static uint64_t*   UCPage_kern1   = nullptr;   /* SpMV q = A·p   */
+static uint64_t*   UCPage_kern2   = nullptr;   /* SpMV r = A·z   */
+static uint64_t*   PerfPage       = nullptr;
 #endif
 
 static uint64_t g_use_pdev          = 0;
@@ -131,7 +131,7 @@ void pickle_cg_init(
     }
 
     if (PerfPage == nullptr) {
-        PerfPage = (volatile uint64_t*) pdev->getPerfPagePtr();
+        PerfPage = (uint64_t*) pdev->getPerfPagePtr();
         printf("[Pickle CG] PerfPage : 0x%lx\n", (unsigned long)PerfPage);
         assert(PerfPage != nullptr);
     }
@@ -262,8 +262,8 @@ void pickle_cg_setup_ucpages(void)
     uint64_t* base = (uint64_t*) pdev->getUCPagePtr(0);
     assert(base != nullptr);
 
-    UCPage_kern1 = (volatile uint64_t*)(base);       /* kernel 1: q=A·p */
-    UCPage_kern2 = (volatile uint64_t*)(base + 1);   /* kernel 2: r=A·z */
+    UCPage_kern1 = (uint64_t*)(base);       /* kernel 1: q=A·p */
+    UCPage_kern2 = (uint64_t*)(base + 1);   /* kernel 2: r=A·z */
 
     printf("[Pickle CG] UCPage_kern1 : 0x%lx\n", (unsigned long)UCPage_kern1);
     printf("[Pickle CG] UCPage_kern2 : 0x%lx\n", (unsigned long)UCPage_kern2);
@@ -275,11 +275,11 @@ void pickle_cg_setup_ucpages(void)
  *  pickle_cg_get_ucpage_ptrs  —  export raw UCPage addresses
  *
  *  Returns the addresses of UCPage_kern1 and UCPage_kern2 so that
- *  Fortran can store hints directly via volatile pointers, avoiding
+ *  Fortran can store hints directly via pointers, avoiding
  *  per-row function call overhead.  This matches the graph benchmarks'
  *  inline  *UCPage = value  pattern.
  *
- *  Fortran side converts these via c_f_pointer() to volatile pointers.
+ *  Fortran side converts these via c_f_pointer() to pointers.
  * ---------------------------------------------------------------- */
 void pickle_cg_get_ucpage_ptrs(
     int64_t** out_kern1,
@@ -299,7 +299,7 @@ void pickle_cg_get_ucpage_ptrs(
  *  pickle_cg_spmv_hint  —  send a row-level prefetch hint
  *
  *  DEPRECATED: prefer direct stores via pkl_ucpage_kern1/kern2
- *  volatile Fortran pointers obtained from pickle_cg_get_ucpage_ptrs.
+ *  Fortran pointers obtained from pickle_cg_get_ucpage_ptrs.
  *  Kept for backward compatibility.
  *
  *  kernel_id : 1 (q=A·p) or 2 (r=A·z)

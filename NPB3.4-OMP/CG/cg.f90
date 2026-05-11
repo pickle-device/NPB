@@ -376,7 +376,7 @@
 
          ! Obtain UCPage communication area
          call pickle_cg_setup_ucpages_c()
-         ! Bind Fortran volatile pointers to the UCPage addresses
+         ! Bind Fortran pointers to the UCPage addresses
          call pickle_cg_setup_ucpage_ptrs()
       endif
 #endif

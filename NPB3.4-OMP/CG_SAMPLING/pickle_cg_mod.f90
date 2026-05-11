@@ -36,8 +36,8 @@
       integer(c_int64_t) :: pkl_bulk_chunk_size   = 0
 
 ! Module-level pointers for direct UCPage stores (no function call)
-      integer(c_int64_t), pointer, volatile :: pkl_ucpage_kern1 => null()
-      integer(c_int64_t), pointer, volatile :: pkl_ucpage_kern2 => null()
+      integer(c_int64_t), pointer :: pkl_ucpage_kern1 => null()
+      integer(c_int64_t), pointer :: pkl_ucpage_kern2 => null()
 
  
 !---------------------------------------------------------------------
@@ -151,13 +151,13 @@
  
 !---------------------------------------------------------------------
 !  pickle_cg_setup_ucpage_ptrs  —  convert C UCPage addresses to
-!                                   Fortran volatile pointers
+!                                   Fortran pointers
 !
 !  Call this AFTER pickle_cg_setup_ucpages_c() has obtained the
 !  UCPage addresses on the C side.  This subroutine retrieves those
 !  raw addresses and converts them to Fortran pointers via
 !  c_f_pointer(), making them available as pkl_ucpage_kern1/kern2
-!  for direct volatile stores in the SpMV hot loop.
+!  for direct stores in the SpMV hot loop.
 !---------------------------------------------------------------------
       subroutine pickle_cg_setup_ucpage_ptrs()
          implicit none
