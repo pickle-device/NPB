@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rm -rf bin/
+rm -rf bin/*.x.m5.pdev
 mkdir bin
 
 WORKLOADS=("IS" "CG")

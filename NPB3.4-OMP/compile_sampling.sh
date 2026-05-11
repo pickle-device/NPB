@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rm -rf bin/
+rm -rf bin/*.x.sampling.*
 mkdir bin
 
 WORKLOADS=("IS_SAMPLING" "CG_SAMPLING")
