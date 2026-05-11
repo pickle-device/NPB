@@ -3,8 +3,8 @@
 rm -rf bin/
 mkdir bin
 
-WORKLOADS=("IS" "CG")
-CLASSES=("S" "W" "A" "B" "C")
+WORKLOADS=("IS_SAMPLING" "CG_SAMPLING")
+CLASSES=("S" "D" "E")
 
 for workload in "${WORKLOADS[@]}"
 do
