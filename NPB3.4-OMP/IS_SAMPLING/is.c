@@ -979,6 +979,17 @@ void rank( int iteration )
 
     }
 
+    #if ENABLE_GEM5==1
+    #pragma omp barrier
+    #pragma omp master
+    {
+        if (iteration == 2) {
+            m5_exit_addr(0);  /* Exit 3: in case that we spill over after simulating for a certain amount of seconds, here we exit the simulation */
+        }
+    }
+    #pragma omp barrier
+    #endif /* ENABLE_GEM5 */
+
 #else /*USE_BUCKETS*/
 
     work_buff = key_buff1_aptr[myid];

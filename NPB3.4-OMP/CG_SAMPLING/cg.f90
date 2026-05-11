@@ -651,6 +651,7 @@ endif
 !---------------------------------------------------------------------
 #if ENABLE_GEM5==1
 if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+   !$omp barrier
    !$omp master
       call map_m5_mem()
       call m5_exit()
@@ -677,6 +678,7 @@ endif
 !    rowstr → colidx → z  (kernel 2: r = A·z)
 !=====================================================================
 #if ENABLE_PICKLEDEVICE==1
+   !$omp barrier
    !$omp master
    if (with_prefetch .eq. 1 .and. sampling_site == 1) then
       call pickle_cg_device_init()
@@ -734,6 +736,7 @@ endif
 !---------------------------------------------------------------------
 #if ENABLE_GEM5==1
 if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+   !$omp barrier
    !$omp master
       call m5_exit()
    !$omp end master
@@ -776,6 +779,16 @@ else
 !$omp end do
 endif
 
+! Here we exit if we spill over the sampling site 1
+#if ENABLE_GEM5==1
+if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+   !$omp barrier
+   !$omp master
+      call m5_exit()
+   !$omp end master
+   !$omp barrier
+endif
+#endif
 
 !---------------------------------------------------------------------
 !  Obtain p.q
@@ -861,6 +874,7 @@ endif
 !---------------------------------------------------------------------
 #if ENABLE_GEM5==1
 if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+   !$omp barrier
    !$omp master
       call map_m5_mem()
       call m5_exit()
@@ -887,6 +901,7 @@ endif
 !    rowstr → colidx → z  (kernel 2: r = A·z)
 !=====================================================================
 #if ENABLE_PICKLEDEVICE==1
+   !$omp barrier   
    !$omp master
    if (with_prefetch .eq. 1 .and. sampling_site == 2) then
       call pickle_cg_device_init()
@@ -944,6 +959,7 @@ endif
 !---------------------------------------------------------------------
 #if ENABLE_GEM5==1
 if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+   !$omp barrier
    !$omp master
       call m5_exit()
    !$omp end master
@@ -985,6 +1001,17 @@ else
       enddo
 !$omp end do
 endif
+
+! Here we exit if we spill over the sampling site 2
+#if ENABLE_GEM5==1
+if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+   !$omp barrier
+   !$omp master
+      call m5_exit()
+   !$omp end master
+   !$omp barrier
+endif
+#endif
 
 !---------------------------------------------------------------------
 !  At this point, r contains A.z
