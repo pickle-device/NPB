@@ -821,6 +821,21 @@ void rank( int iteration )
                 bucket_ptrs[i] += bucket_size[k][i];
     }
 
+#if ENABLE_PICKLEDEVICE==1
+    // Make a copy of every important variable so that every thread
+    // has local copies of these constant variables. The reason it is
+    // necessary is that, because these are shared variables among
+    // openmp threads, and can be updated any time. Also, the compiler
+    // can't tell whether UCPage and other global uint64_t are aliases,
+    // so it has to keep these variables in memory and load to read them
+    // for every iteration. This is wasteful.
+    // Instead, by making a constant local copy of every of these
+    // variables, we ensure that these variables are kept in registers.
+    const uint64_t local_use_pdev = use_pdev;
+    const uint64_t local_prefetch_distance = prefetch_distance;
+    uint64_t* const local_uc_page = UCPage;
+#endif
+
 
 /*  Now, buckets are sorted.  We only need to sort keys inside
     each bucket, which can be done in parallel.  Because the distribution
@@ -862,14 +877,14 @@ void rank( int iteration )
          * key_buff_ptr before the core needs it.
          */
 #if ENABLE_PICKLEDEVICE==1
-        if (use_pdev == 1) {
+        if (local_use_pdev == 1) {
             const INT_TYPE next_ptr = bucket_ptrs[i];
             for ( k = m; k < next_ptr; k++ ) {
                 /* Send prefetch hint: address of current source element.
                  * The device reads key_buff_ptr2[k + prefetch_distance],
                  * gets the key value V, and prefetches key_buff_ptr[V]. */
-                if ( k + prefetch_distance < next_ptr ) {
-                    *UCPage = (uint64_t)(k);
+                if ( k + local_prefetch_distance < next_ptr ) {
+                    *local_uc_page = (uint64_t)(k);
                 }
                 key_buff_ptr[key_buff_ptr2[k]]++;
             }
