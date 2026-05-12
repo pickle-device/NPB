@@ -721,8 +721,8 @@ Disassembly of section .text:
     37a4:	f94001cf 	ldr	x15, [x14]
     37a8:	f9400248 	ldr	x8, [x18]
     37ac:	d503201f 	nop
-    37b0:	d1000401 	sub	x1, x0, #0x1
-    37b4:	f9000201 	str	x1, [x16]
+    37b0:	d1000401 	sub	x1, x0, #0x1                                       ########## SPMV KERNEL 1: (outer loop) start
+    37b4:	f9000201 	str	x1, [x16]                                          ########## SPMV KERNEL 1: prefetch hint <- WE USE THIS PC TO TRACK HOW MANY ITERATIONS EXECUTED
     37b8:	aa0003ea 	mov	x10, x0
     37bc:	f9400561 	ldr	x1, [x11, #8]
     37c0:	8b000022 	add	x2, x1, x0
@@ -739,20 +739,20 @@ Disassembly of section .text:
     37ec:	f9400647 	ldr	x7, [x18, #8]
     37f0:	8b040b64 	add	x4, x27, x4, lsl #2
     37f4:	8b050fc5 	add	x5, x30, x5, lsl #3
-    37f8:	b8a17882 	ldrsw	x2, [x4, x1, lsl #2]
-    37fc:	fc6178a2 	ldr	d2, [x5, x1, lsl #3]
+    37f8:	b8a17882 	ldrsw	x2, [x4, x1, lsl #2]                           ########## SPMV KERNEL 1: (inner loop) x2 = colidx(k)
+    37fc:	fc6178a2 	ldr	d2, [x5, x1, lsl #3]                               ########## SPMV KERNEL 1: (inner loop) d2 = a(k)
     3800:	91000421 	add	x1, x1, #0x1
     3804:	8b070042 	add	x2, x2, x7
-    3808:	fc627901 	ldr	d1, [x8, x2, lsl #3]
-    380c:	1f410040 	fmadd	d0, d2, d1, d0
+    3808:	fc627901 	ldr	d1, [x8, x2, lsl #3]                               ########## SPMV KERNEL 1: (inner loop) d1 = p(colidx(k))
+    380c:	1f410040 	fmadd	d0, d2, d1, d0                                 ########## SPMV KERNEL 1: (inner loop) suml = suml + a(k) * p(colidx(k))
     3810:	6b0100df 	cmp	w6, w1
     3814:	54ffff2c 	b.gt	37f8 <conj_grad_._omp_fn.0+0x998>
     3818:	f94005c2 	ldr	x2, [x14, #8]
     381c:	0b000221 	add	w1, w17, w0
     3820:	8b020142 	add	x2, x10, x2
-    3824:	fc2279e0 	str	d0, [x15, x2, lsl #3]
+    3824:	fc2279e0 	str	d0, [x15, x2, lsl #3]                              ########## SPMV KERNEL 1: (outer loop) q(j) = suml
     3828:	6b01007f 	cmp	w3, w1
-    382c:	54fffc2c 	b.gt	37b0 <conj_grad_._omp_fn.0+0x950>
+    382c:	54fffc2c 	b.gt	37b0 <conj_grad_._omp_fn.0+0x950>              ########## SPMV KERNEL 1: (outer loop) Check if finished
     3830:	17fffe45 	b	3144 <conj_grad_._omp_fn.0+0x2e4>
     3834:	f9400740 	ldr	x0, [x26, #8]
     3838:	b9400000 	ldr	w0, [x0]
@@ -1257,8 +1257,8 @@ Disassembly of section .text:
     4004:	f94001b8 	ldr	x24, [x13]
     4008:	f94001cf 	ldr	x15, [x14]
     400c:	f9400208 	ldr	x8, [x16]
-    4010:	d1000401 	sub	x1, x0, #0x1
-    4014:	f9000221 	str	x1, [x17]
+    4010:	d1000401 	sub	x1, x0, #0x1                                       ########## SPMV KERNEL 2: (outer loop) start
+    4014:	f9000221 	str	x1, [x17]                                          ########## SPMV KERNEL 2: prefetch hint <- WE USE THIS PC TO TRACK HOW MANY ITERATIONS EXECUTED
     4018:	aa0003ea 	mov	x10, x0
     401c:	f9400561 	ldr	x1, [x11, #8]
     4020:	8b000024 	add	x4, x1, x0
@@ -1275,20 +1275,20 @@ Disassembly of section .text:
     404c:	f9400607 	ldr	x7, [x16, #8]
     4050:	8b040ae4 	add	x4, x23, x4, lsl #2
     4054:	8b050f05 	add	x5, x24, x5, lsl #3
-    4058:	b8a17882 	ldrsw	x2, [x4, x1, lsl #2]
-    405c:	fc6178a2 	ldr	d2, [x5, x1, lsl #3]
+    4058:	b8a17882 	ldrsw	x2, [x4, x1, lsl #2]                           ########## SPMV KERNEL 2: (inner loop) x2 = colidx(k)
+    405c:	fc6178a2 	ldr	d2, [x5, x1, lsl #3]                               ########## SPMV KERNEL 2: (inner loop) x2 = d2 = a(k)
     4060:	91000421 	add	x1, x1, #0x1
     4064:	8b070042 	add	x2, x2, x7
-    4068:	fc627901 	ldr	d1, [x8, x2, lsl #3]
-    406c:	1f410040 	fmadd	d0, d2, d1, d0
-    4070:	6b0100df 	cmp	w6, w1
-    4074:	54ffff2c 	b.gt	4058 <conj_grad_._omp_fn.0+0x11f8>
+    4068:	fc627901 	ldr	d1, [x8, x2, lsl #3]                               ########## SPMV KERNEL 2: (inner loop) suml = a(k) * z(colidx(k))
+    406c:	1f410040 	fmadd	d0, d2, d1, d0                                 ########## SPMV KERNEL 2: (inner loop) suml = suml + a(k) * z(colidx(k))
+    4070:	6b0100df 	cmp	w6, w1                                             
+    4074:	54ffff2c 	b.gt	4058 <conj_grad_._omp_fn.0+0x11f8>             ########## SPMV KERNEL 2: (inner loop) Check if finished
     4078:	f94005c2 	ldr	x2, [x14, #8]
     407c:	0b000241 	add	w1, w18, w0
     4080:	8b020142 	add	x2, x10, x2
-    4084:	fc2279e0 	str	d0, [x15, x2, lsl #3]
+    4084:	fc2279e0 	str	d0, [x15, x2, lsl #3]                              ########## SPMV KERNEL 2: (outer loop) r(j) = suml
     4088:	6b01007f 	cmp	w3, w1
-    408c:	54fffc2c 	b.gt	4010 <conj_grad_._omp_fn.0+0x11b0>
+    408c:	54fffc2c 	b.gt	4010 <conj_grad_._omp_fn.0+0x11b0>             ########## SPMV KERNEL 2: (outer loop) Check if finished
     4090:	17fffc91 	b	32d4 <conj_grad_._omp_fn.0+0x474>
     4094:	11000421 	add	w1, w1, #0x1
     4098:	52800000 	mov	w0, #0x0                   	// #0
