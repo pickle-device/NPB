@@ -2997,15 +2997,15 @@ Disassembly of section .text:
     5274:	54fff06d 	b.le	5080 <_Z4ranki._omp_fn.0+0x820>
     5278:	93407c21 	sxtw	x1, w1
     527c:	d2800000 	mov	x0, #0x0                   	// #0
-    5280:	8b000282 	add	x2, x20, x0
-    5284:	b8a07b6d 	ldrsw	x13, [x27, x0, lsl #2]
-    5288:	eb02003f 	cmp	x1, x2
+    5280:	8b000282 	add	x2, x20, x0                                        ########## The k + prefetch_distance calculation
+    5284:	b8a07b6d 	ldrsw	x13, [x27, x0, lsl #2]                         ########## The key_buff_ptr2[k] load   <- WE USE THIS PC TO TRACK HOW MANY ITERATIONS HAVE BEEN EXECUTED
+    5288:	eb02003f 	cmp	x1, x2                                             ########## The k + prefetch_distance < next_ptr check
     528c:	54000049 	b.ls	5294 <_Z4ranki._omp_fn.0+0xa34>  // b.plast
     5290:	f9000260 	str	x0, [x19]
-    5294:	b86d7b82 	ldr	w2, [x28, x13, lsl #2]
+    5294:	b86d7b82 	ldr	w2, [x28, x13, lsl #2]                             ########## The key_buff_ptr[key_buff_ptr2[k]] load
     5298:	91000400 	add	x0, x0, #0x1
     529c:	11000442 	add	w2, w2, #0x1
-    52a0:	b82d7b82 	str	w2, [x28, x13, lsl #2]
+    52a0:	b82d7b82 	str	w2, [x28, x13, lsl #2]                             ########## The key_buff_ptr[key_buff_ptr2[k]] store
     52a4:	eb00003f 	cmp	x1, x0
     52a8:	54fffec1 	b.ne	5280 <_Z4ranki._omp_fn.0+0xa20>  // b.any
     52ac:	17ffff75 	b	5080 <_Z4ranki._omp_fn.0+0x820>
