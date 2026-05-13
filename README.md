@@ -1,54 +1,26 @@
 NAS Parallel Benchmarks Version 3.4.2 (NPB3.4.2)
 --------------------------------------------------
 
-  NAS Parallel Benchmarks Team
-  NASA Ames Research Center
-  Moffett Field, CA   94035-1000
-
-  E-mail:  npb@nas.nasa.gov                                      
-  Fax:     (650) 604-3957                                        
-  http://www.nas.nasa.gov/Software/NPB/
-
---------------------------------------------------
-
-This repo adds m5 annotations to the NAS Parallel Benchmarks located in
-`NPB/NPB3.4-OMP`.
-
-The annotations are added to the timed sections as follows,
-- An `m5_work_begin()` call before `timer_start(t_bench)`, or
-`timer_start(t_total)`, or an equivalent.
-- An `m5_work_end()` call after `timer_stop(t_bench)`, or `timer_stop(t_total)`, 
-or an equivalent.
-
-**Notes:**
-- For the `DC` benchmark, the work is split into tasks via OMP directive.
-Each task uses a different timer for its timed section. To keep it simple,
-we decided to put an `m5_work_begin()` before the OMP task directive, and
-another `m5_work_end()` after the OMP task directive.
-
-In order to compile the benchmarks with m5 annotations, the
-following environment variables must be set,
+# Compiling workloads
 
 ```sh
-M5_ANNOTATION # If M5_ANNOTATION=1, the build system will compile the binaries
-              # with m5 annotations.
-
-GEM5_INCLUDE_DIR # Path to the gem5's include/ directory.
-                 # Typically, the path is gem5/include.
-
-GEM5_M5_ABI_DIR # Path to m5 utility abi folder for a specific ISA.
-                # Typically,
-                # For x86: gem5/util/m5/src/abi/x86/
-                # For arm64: gem5/util/m5/src/abi/arm64/
-                # For riscv: gm5/util/m5/src/abi/riscv
+cd NPB/NPB3.4-OMP/
+./compile.sh # a regular version of CG, IS, UA
+./compile_sampling.sh # the version of CG, IS, UA that executes according to the sampling points generate sampling points
 ```
 
-If you're cross compiling, you might want to set additional environment
-variables as follows,
+# To generate sampling points
 
 ```sh
-FC # Path to the gfortran compiler for compiling **guest** binaries.
-CC # Path to the gcc compiler for compiling **guest** binaries.
-UCC # Path to the gcc compiler for compiling utilities **guest** objects.
-SYS_UCC # Path to the gcc compiler for compiling utilities **host** objects.
+python3 /workdir/NPB/NPB3.4-OMP/generate_sampling_points.py --output_dir=/workdir/experiments/prefetcher/gem5_configurations/npb_sampling_points/ --workload <workload> --sampling_site=<sampling_site>
 ```
+
+# Tracking PCs
+
+The `cg.E.sampling.objdump` and `is.D.sampling.objdump` contain the disassembly of the cg/is binaries.
+In these files, we annotated the critical loops and identified PCs to be tracked in different sampling sites.
+
+# Other files
+
+- `cg.E.array_data.gz`: the row index of each row of the A matrix; used to determine the number of non-zero elements of each row; which are used to determine the number of warm up rows for each sampling point.
+- `is.D.array_data.gz`: the starting index of each bucket; used to determine the number of warm up bucket for each sampling point.
