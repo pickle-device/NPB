@@ -93,7 +93,6 @@ def generate_sampling_points_for_is(
     # For IS,
     # - starting_iter is the starting bucket
     # - num_warmup_iters is the number of buckets to fill the LLC before sampling
-    # - num_elements_to_sample is the number of elements (not the number of buckets) to sample after the warmup iterations
     sampling_points = []
     while len(sampling_points) < num_sampling_points:
         starting_bucket = random.randint(1, num_buckets - 1)
@@ -111,12 +110,90 @@ def generate_sampling_points_for_is(
     print(f"Generated {len(sampling_points)} sampling points:")
     for i, sp in enumerate(sampling_points):
         print(f"  Sampling Point {i + 1}: Starting Bucket = {sp.starting_iter}, Warmup Buckets = {sp.num_warmup_iters}")
-        
+    return sampling_points
+
+# Format:
+# """
+# NAS Parallel Benchmarks (NPB3.4-OMP) - CG Benchmark                                                
+#                                                                                                    
+# Size:     9000000                                                                                  
+# Iterations:                    100                                                                 
+# Number of available threads:    64                                                                 
+#                                                                                                    
+#     9000000                                                                                        
+# Number of non-zeros in A:           6326754836                                                     
+# row,starts at index                                                                                
+#           1                    1                                                                   
+#           2                  626                                                                   
+#           3                 1277                                                                   
+#           4                 1954                                                                   
+#           5                 2787                                                                   
+#           6                 3516  
+# """
+# Note:
+# - This is the CSR's row pointer array of the A matrix. This is 1-indexed.
+# - We can use this to determine how many non-zeros are in each row, and thus how much data is accessed in each iteration of the CG kernel.
+# - Even though the CG kernel has two sampling sites, the array access pattern is the same for both sampling sites, so we can use the same array structure to generate sampling points for both sampling sites.
+def generate_sampling_points_for_cg(
+    workload_name, workload_class, llc_size_bytes, num_sampling_points
+):
+    # read array structure from trace file
+    trace_file = f"{workload_name}.{workload_class}.array_data.gz"
+    if not os.path.exists(trace_file):
+        print(f"Error: Trace file {trace_file} not found.")
+        exit(1)
+    with gzip.open(trace_file, "rt") as f:
+        lines = f.readlines()
+    reading_rows = False
+    row_start_indices = [0]
+    for line in lines:
+        line = line.strip()
+        if not reading_rows:
+            if line.startswith("row,starts at index"):
+                reading_rows = True
+            continue
+        if reading_rows:
+            line = line.strip()
+            parts = line.split()
+            row_start_indices.append(int(parts[1]))
+    row_to_num_nonzeros = {}
+    num_rows = len(row_start_indices)
+    for row in range(1, num_rows):
+        num_nonzeros = row_start_indices[row] - row_start_indices[row-1]
+        row_to_num_nonzeros[row] = num_nonzeros
+    # now we have the bucket structure, we can generate random sampling points
+    # For CG,
+    # - starting_iter is the starting row
+    # - num_warmup_iters is the number of rows to fill the LLC before sampling
+    sampling_points = []
+    while len(sampling_points) < num_sampling_points:
+        starting_row = random.randint(1, num_rows - 1)
+        num_warmup_rows = 0
+        remaining_llc_size = llc_size_bytes
+        successfully_generated = False
+        while remaining_llc_size > 0 and starting_row + num_warmup_rows < num_rows:
+            num_nonzeros = row_to_num_nonzeros[starting_row + num_warmup_rows]
+            num_warmup_rows += 1
+            # for each element, we pull in 4 bytes from the column index array and 8 bytes from the data array
+            remaining_llc_size -= (4 + 8) * num_nonzeros
+            successfully_generated = starting_row + num_warmup_rows < num_rows
+        if successfully_generated:
+            sampling_points.append(SamplingPoint(starting_row, num_warmup_rows))
+    print(f"Generated {len(sampling_points)} sampling points:")
+    for i, sp in enumerate(sampling_points):
+        print(f"  Sampling Point {i + 1}: Starting Row = {sp.starting_iter}, Warmup Rows = {sp.num_warmup_iters}")
+    return sampling_points
+
 if __name__ == "__main__":
-    random.seed(42)
     parser = argparse.ArgumentParser(
         "Randomly generate sampling points for NPB workloads",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default=".",
+        help="Output folder for storing the file with the generated sampling points",
     )
     parser.add_argument(
         "--workload",
@@ -124,6 +201,12 @@ if __name__ == "__main__":
         choices=["cg.E", "is.D"],
         required=True,
         help="NPB workload to generate sampling points for",
+    )
+    parser.add_argument(
+        "--sampling_site",
+        type=int,
+        required=True,
+        help="Sampling site",
     )
     parser.add_argument(
         "--llc_size_mib",
@@ -140,14 +223,49 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     workload_name, workload_class = args.workload.split(".")
+    sampling_site = args.sampling_site
     llc_size_bytes = args.llc_size_mib * 1024 * 1024
     num_sampling_points = args.num_sampling_points
+    output_dir = args.output_dir
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+
+    random.seed(42 + sampling_site)
+
+    if workload_name in {"is"}:
+        assert sampling_site in {1}, f"{workload_name} only has one sampling site"
+    elif workload_name in {"cg"}:
+        assert sampling_site in {1, 2}, f"{workload_name} has two sampling sites"
+    else:
+        raise ValueError(f"Unknown workload {workload_name}")
+
+    output_file_name = f"{workload_name}.{workload_class}.sampling_site-{sampling_site}.llc-{args.llc_size_mib}MiB.sampling_points.txt"
+    output_file_path = os.path.join(output_dir, output_file_name)
 
     print(f"Input:")
-    print(f"  Workload: {workload_name} Class {workload_class}")
+    print(f"  Workload: {workload_name}")
+    print(f"  Class: {workload_class}")
+    print(f"  Sampling Site: {sampling_site}")
     print(f"  LLC Size: {args.llc_size_mib} MiB")
     print(f"  Number of Sampling Points: {num_sampling_points}")
 
     # read array structure from array data trace
     if workload_name == "is":
-        generate_sampling_points_for_is(workload_name, workload_class, llc_size_bytes, num_sampling_points)
+        sampling_points = generate_sampling_points_for_is(workload_name, workload_class, llc_size_bytes, num_sampling_points)
+    elif workload_name == "cg":
+        sampling_points = generate_sampling_points_for_cg(workload_name, workload_class, llc_size_bytes, num_sampling_points)
+    else:
+        raise ValueError(f"Unknown workload {workload_name}")
+
+    # write sampling points to output file
+    with open(output_file_path, "w") as f:
+        f.write(f"Input:")
+        f.write(f"  Workload: {workload_name}\n")
+        f.write(f"  Class: {workload_class}\n")
+        f.write(f"  Sampling Site: {sampling_site}\n")
+        f.write(f"  LLC Size: {args.llc_size_mib} MiB\n")
+        f.write(f"  Number of Sampling Points: {num_sampling_points}\n")
+        f.write(f"  Sampling Points:\n")
+        for i, sp in enumerate(sampling_points):
+            f.write(f"    Sampling Point {i + 1}: Starting Iter = {sp.starting_iter}, Num Warmup Iters = {sp.num_warmup_iters}\n")
