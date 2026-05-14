@@ -1171,7 +1171,7 @@ Disassembly of section .text:
     360c:	97fffb89 	bl	2430 <__printf_chk@plt>
     3610:	910006b5 	add	x21, x21, #0x1
     3614:	d2800000 	mov	x0, #0x0                   	// #0
-    3618:	94000ed8 	bl	7178 <m5_exit_addr>
+    3618:	94000f3d 	bl	730c <m5_exit_addr>
     361c:	f9401a74 	ldr	x20, [x19, #48]
     3620:	aa1403e0 	mov	x0, x20
     3624:	aa1603e8 	mov	x8, x22
@@ -1204,7 +1204,7 @@ Disassembly of section .text:
     3690:	a9455bf5 	ldp	x21, x22, [sp, #80]
     3694:	a94663f7 	ldp	x23, x24, [sp, #96]
     3698:	9101c3ff 	add	sp, sp, #0x70
-    369c:	14000eb7 	b	7178 <m5_exit_addr>
+    369c:	14000f1c 	b	730c <m5_exit_addr>
     36a0:	aa1403e0 	mov	x0, x20
     36a4:	97fffaeb 	bl	2250 <_ZN19PickleDeviceManager14getPerfPagePtrEv@plt>
     36a8:	90000021 	adrp	x1, 7000 <_Z16check_timer_flagv+0xcc>
@@ -2410,7 +2410,7 @@ Disassembly of section .text:
     4948:	91004063 	add	x3, x3, #0x10
     494c:	b900007f 	str	wzr, [x3]
     4950:	7100035f 	cmp	w26, #0x0
-    4954:	54004f4d 	b.le	533c <_Z4ranki._omp_fn.0+0xadc>
+    4954:	54004f6d 	b.le	5340 <_Z4ranki._omp_fn.0+0xae0>
     4958:	900000e0 	adrp	x0, 20000 <__data_start>
     495c:	91094001 	add	x1, x0, #0x250
     4960:	52800000 	mov	w0, #0x0                   	// #0
@@ -2801,7 +2801,7 @@ Disassembly of section .text:
     4f64:	1a9f17e0 	cset	w0, eq	// eq = none
     4f68:	6a000020 	ands	w0, w1, w0
     4f6c:	b9004be0 	str	w0, [sp, #72]
-    4f70:	54001b81 	b.ne	52e0 <_Z4ranki._omp_fn.0+0xa80>  // b.any
+    4f70:	54001ba1 	b.ne	52e4 <_Z4ranki._omp_fn.0+0xa84>  // b.any
     4f74:	97fff52b 	bl	2420 <GOMP_barrier@plt>
     4f78:	900000e0 	adrp	x0, 20000 <__data_start>
     4f7c:	91004001 	add	x1, x0, #0x10
@@ -2953,7 +2953,7 @@ Disassembly of section .text:
     51c4:	97fff483 	bl	23d0 <GOMP_loop_end@plt>
     51c8:	97fff496 	bl	2420 <GOMP_barrier@plt>
     51cc:	b9404be0 	ldr	w0, [sp, #72]
-    51d0:	35000b00 	cbnz	w0, 5330 <_Z4ranki._omp_fn.0+0xad0>
+    51d0:	35000b20 	cbnz	w0, 5334 <_Z4ranki._omp_fn.0+0xad4>
     51d4:	97fff493 	bl	2420 <GOMP_barrier@plt>
     51d8:	d00000c0 	adrp	x0, 1f000 <__FRAME_END__+0x164f4>
     51dc:	f947d400 	ldr	x0, [x0, #4008]
@@ -2961,7 +2961,7 @@ Disassembly of section .text:
     51e4:	f9400001 	ldr	x1, [x0]
     51e8:	eb010042 	subs	x2, x2, x1
     51ec:	d2800001 	mov	x1, #0x0                   	// #0
-    51f0:	54000b21 	b.ne	5354 <_Z4ranki._omp_fn.0+0xaf4>  // b.any
+    51f0:	54000b41 	b.ne	5358 <_Z4ranki._omp_fn.0+0xaf8>  // b.any
     51f4:	a94a7bfd 	ldp	x29, x30, [sp, #160]
     51f8:	a94b53f3 	ldp	x19, x20, [sp, #176]
     51fc:	a94c5bf5 	ldp	x21, x22, [sp, #192]
@@ -3001,7 +3001,7 @@ Disassembly of section .text:
     5284:	b8a07b6d 	ldrsw	x13, [x27, x0, lsl #2]                         ########## The key_buff_ptr2[k] load   <- WE USE THIS PC TO TRACK HOW MANY ITERATIONS HAVE BEEN EXECUTED
     5288:	eb02003f 	cmp	x1, x2                                             ########## The k + prefetch_distance < next_ptr check
     528c:	54000049 	b.ls	5294 <_Z4ranki._omp_fn.0+0xa34>  // b.plast
-    5290:	f9000260 	str	x0, [x19]
+    5290:	f9000260 	str	x0, [x19]                                          ########## The prefetch hint
     5294:	b86d7b82 	ldr	w2, [x28, x13, lsl #2]                             ########## The key_buff_ptr[key_buff_ptr2[k]] load
     5298:	91000400 	add	x0, x0, #0x1
     529c:	11000442 	add	w2, w2, #0x1
@@ -3015,43 +3015,43 @@ Disassembly of section .text:
     52bc:	11000400 	add	w0, w0, #0x1
     52c0:	52800018 	mov	w24, #0x0                   	// #0
     52c4:	17fffd8c 	b	48f4 <_Z4ranki._omp_fn.0+0x94>
-    52c8:	d2800000 	mov	x0, #0x0                   	// #0
-    52cc:	940007ab 	bl	7178 <m5_exit_addr>
-    52d0:	97fff454 	bl	2420 <GOMP_barrier@plt>
+    52c8:	9400078a 	bl	70f0 <map_m5_mem>
+    52cc:	d2800000 	mov	x0, #0x0                   	// #0
+    52d0:	9400080f 	bl	730c <m5_exit_addr>
     52d4:	97fff453 	bl	2420 <GOMP_barrier@plt>
-    52d8:	97fff9d6 	bl	3a30 <_Z12pickle_setupv>
-    52dc:	17fffe87 	b	4cf8 <_Z4ranki._omp_fn.0+0x498>
-    52e0:	d2800000 	mov	x0, #0x0                   	// #0
-    52e4:	940007a5 	bl	7178 <m5_exit_addr>
-    52e8:	97fff44e 	bl	2420 <GOMP_barrier@plt>
-    52ec:	f00000c0 	adrp	x0, 20000 <__data_start>
-    52f0:	91004001 	add	x1, x0, #0x10
-    52f4:	910243e5 	add	x5, sp, #0x90
-    52f8:	910223e4 	add	x4, sp, #0x88
-    52fc:	b9401000 	ldr	w0, [x0, #16]
-    5300:	d2a00023 	mov	x3, #0x10000               	// #65536
-    5304:	b9400421 	ldr	w1, [x1, #4]
-    5308:	d2800022 	mov	x2, #0x1                   	// #1
-    530c:	f9001be4 	str	x4, [sp, #48]
-    5310:	0b010000 	add	w0, w0, w1
-    5314:	d2804001 	mov	x1, #0x200                 	// #512
-    5318:	f90023e5 	str	x5, [sp, #64]
-    531c:	93407c00 	sxtw	x0, w0
-    5320:	97fff420 	bl	23a0 <GOMP_loop_nonmonotonic_dynamic_start@plt>
-    5324:	3707e480 	tbnz	w0, #0, 4fb4 <_Z4ranki._omp_fn.0+0x754>
-    5328:	97fff42a 	bl	23d0 <GOMP_loop_end@plt>
-    532c:	97fff43d 	bl	2420 <GOMP_barrier@plt>
-    5330:	d2800000 	mov	x0, #0x0                   	// #0
-    5334:	94000791 	bl	7178 <m5_exit_addr>
-    5338:	17ffffa7 	b	51d4 <_Z4ranki._omp_fn.0+0x974>
-    533c:	f00000c0 	adrp	x0, 20000 <__data_start>
-    5340:	91094001 	add	x1, x0, #0x250
-    5344:	52800000 	mov	w0, #0x0                   	// #0
-    5348:	f9401025 	ldr	x5, [x1, #32]
-    534c:	8b050294 	add	x20, x20, x5
-    5350:	17fffd8e 	b	4988 <_Z4ranki._omp_fn.0+0x128>
-    5354:	97fff343 	bl	2060 <__stack_chk_fail@plt>
-    5358:	d503201f 	nop
+    52d8:	97fff452 	bl	2420 <GOMP_barrier@plt>
+    52dc:	97fff9d5 	bl	3a30 <_Z12pickle_setupv>
+    52e0:	17fffe86 	b	4cf8 <_Z4ranki._omp_fn.0+0x498>
+    52e4:	d2800000 	mov	x0, #0x0                   	// #0
+    52e8:	94000809 	bl	730c <m5_exit_addr>
+    52ec:	97fff44d 	bl	2420 <GOMP_barrier@plt>
+    52f0:	f00000c0 	adrp	x0, 20000 <__data_start>
+    52f4:	91004001 	add	x1, x0, #0x10
+    52f8:	910243e5 	add	x5, sp, #0x90
+    52fc:	910223e4 	add	x4, sp, #0x88
+    5300:	b9401000 	ldr	w0, [x0, #16]
+    5304:	d2a00023 	mov	x3, #0x10000               	// #65536
+    5308:	b9400421 	ldr	w1, [x1, #4]
+    530c:	d2800022 	mov	x2, #0x1                   	// #1
+    5310:	f9001be4 	str	x4, [sp, #48]
+    5314:	0b010000 	add	w0, w0, w1
+    5318:	d2804001 	mov	x1, #0x200                 	// #512
+    531c:	f90023e5 	str	x5, [sp, #64]
+    5320:	93407c00 	sxtw	x0, w0
+    5324:	97fff41f 	bl	23a0 <GOMP_loop_nonmonotonic_dynamic_start@plt>
+    5328:	3707e460 	tbnz	w0, #0, 4fb4 <_Z4ranki._omp_fn.0+0x754>
+    532c:	97fff429 	bl	23d0 <GOMP_loop_end@plt>
+    5330:	97fff43c 	bl	2420 <GOMP_barrier@plt>
+    5334:	d2800000 	mov	x0, #0x0                   	// #0
+    5338:	940007f5 	bl	730c <m5_exit_addr>
+    533c:	17ffffa6 	b	51d4 <_Z4ranki._omp_fn.0+0x974>
+    5340:	f00000c0 	adrp	x0, 20000 <__data_start>
+    5344:	91094001 	add	x1, x0, #0x250
+    5348:	52800000 	mov	w0, #0x0                   	// #0
+    534c:	f9401025 	ldr	x5, [x1, #32]
+    5350:	8b050294 	add	x20, x20, x5
+    5354:	17fffd8d 	b	4988 <_Z4ranki._omp_fn.0+0x128>
+    5358:	97fff342 	bl	2060 <__stack_chk_fail@plt>
     535c:	d503201f 	nop
 
 0000000000005360 <_ZNKSt5ctypeIcE8do_widenEc>:
@@ -4992,295 +4992,295 @@ Disassembly of section .text:
     70e0:	910103ff 	add	sp, sp, #0x40
     70e4:	d65f03c0 	ret
     70e8:	97ffebde 	bl	2060 <__stack_chk_fail@plt>
+    70ec:	d503201f 	nop
 
-00000000000070ec <m5_arm_addr>:
-    70ec:	b00000c9 	adrp	x9, 20000 <__data_start>
-    70f0:	f9419129 	ldr	x9, [x9, #800]
-    70f4:	d280000a 	mov	x10, #0x0                   	// #0
-    70f8:	f86a6920 	ldr	x0, [x9, x10]
-    70fc:	d65f03c0 	ret
+00000000000070f0 <map_m5_mem>:
+    70f0:	a9bd7bfd 	stp	x29, x30, [sp, #-48]!
+    70f4:	910003fd 	mov	x29, sp
+    70f8:	a90153f3 	stp	x19, x20, [sp, #16]
+    70fc:	b00000d4 	adrp	x20, 20000 <__data_start>
+    7100:	f9419280 	ldr	x0, [x20, #800]
+    7104:	a9025bf5 	stp	x21, x22, [sp, #32]
+    7108:	b50004c0 	cbnz	x0, 71a0 <map_m5_mem+0xb0>
+    710c:	b00000d5 	adrp	x21, 20000 <__data_start>
+    7110:	f94116a0 	ldr	x0, [x21, #552]
+    7114:	b4000340 	cbz	x0, 717c <map_m5_mem+0x8c>
+    7118:	b00000d6 	adrp	x22, 20000 <__data_start>
+    711c:	52820041 	mov	w1, #0x1002                	// #4098
+    7120:	72a00201 	movk	w1, #0x10, lsl #16
+    7124:	f9411ac0 	ldr	x0, [x22, #560]
+    7128:	97ffebde 	bl	20a0 <open@plt>
+    712c:	2a0003f3 	mov	w19, w0
+    7130:	3100041f 	cmn	w0, #0x1
+    7134:	540006a0 	b.eq	7208 <map_m5_mem+0x118>  // b.none
+    7138:	f94116a5 	ldr	x5, [x21, #552]
+    713c:	d2a00021 	mov	x1, #0x10000               	// #65536
+    7140:	2a0003e4 	mov	w4, w0
+    7144:	52800023 	mov	w3, #0x1                   	// #1
+    7148:	52800062 	mov	w2, #0x3                   	// #3
+    714c:	d2800000 	mov	x0, #0x0                   	// #0
+    7150:	97ffec20 	bl	21d0 <mmap@plt>
+    7154:	aa0003e1 	mov	x1, x0
+    7158:	2a1303e0 	mov	w0, w19
+    715c:	f9019281 	str	x1, [x20, #800]
+    7160:	97ffec58 	bl	22c0 <close@plt>
+    7164:	f9419280 	ldr	x0, [x20, #800]
+    7168:	b4000300 	cbz	x0, 71c8 <map_m5_mem+0xd8>
+    716c:	a94153f3 	ldp	x19, x20, [sp, #16]
+    7170:	a9425bf5 	ldp	x21, x22, [sp, #32]
+    7174:	a8c37bfd 	ldp	x29, x30, [sp], #48
+    7178:	d65f03c0 	ret
+    717c:	900000c3 	adrp	x3, 1f000 <__FRAME_END__+0x164f4>
+    7180:	f947e063 	ldr	x3, [x3, #4032]
+    7184:	90000000 	adrp	x0, 7000 <_Z16check_timer_flagv+0xcc>
+    7188:	d28003c2 	mov	x2, #0x1e                  	// #30
+    718c:	d2800021 	mov	x1, #0x1                   	// #1
+    7190:	913aa000 	add	x0, x0, #0xea8
+    7194:	f9400063 	ldr	x3, [x3]
+    7198:	97ffec92 	bl	23e0 <fwrite@plt>
+    719c:	17ffffdf 	b	7118 <map_m5_mem+0x28>
+    71a0:	900000c3 	adrp	x3, 1f000 <__FRAME_END__+0x164f4>
+    71a4:	f947f463 	ldr	x3, [x3, #4072]
+    71a8:	d28002e2 	mov	x2, #0x17                  	// #23
+    71ac:	d2800021 	mov	x1, #0x1                   	// #1
+    71b0:	90000000 	adrp	x0, 7000 <_Z16check_timer_flagv+0xcc>
+    71b4:	913a4000 	add	x0, x0, #0xe90
+    71b8:	f9400063 	ldr	x3, [x3]
+    71bc:	97ffec89 	bl	23e0 <fwrite@plt>
+    71c0:	52800020 	mov	w0, #0x1                   	// #1
+    71c4:	97ffec7f 	bl	23c0 <exit@plt>
+    71c8:	900000c0 	adrp	x0, 1f000 <__FRAME_END__+0x164f4>
+    71cc:	f947f400 	ldr	x0, [x0, #4072]
+    71d0:	f9411ad4 	ldr	x20, [x22, #560]
+    71d4:	f9400013 	ldr	x19, [x0]
+    71d8:	97ffec2a 	bl	2280 <__errno_location@plt>
+    71dc:	b9400000 	ldr	w0, [x0]
+    71e0:	97ffebe0 	bl	2160 <strerror@plt>
+    71e4:	aa0003e4 	mov	x4, x0
+    71e8:	aa1403e3 	mov	x3, x20
+    71ec:	90000002 	adrp	x2, 7000 <_Z16check_timer_flagv+0xcc>
+    71f0:	913b8042 	add	x2, x2, #0xee0
+    71f4:	52800041 	mov	w1, #0x2                   	// #2
+    71f8:	aa1303e0 	mov	x0, x19
+    71fc:	97ffebc9 	bl	2120 <__fprintf_chk@plt>
+    7200:	52800020 	mov	w0, #0x1                   	// #1
+    7204:	97ffec6f 	bl	23c0 <exit@plt>
+    7208:	900000c0 	adrp	x0, 1f000 <__FRAME_END__+0x164f4>
+    720c:	f947f400 	ldr	x0, [x0, #4072]
+    7210:	f9411ad4 	ldr	x20, [x22, #560]
+    7214:	f9400013 	ldr	x19, [x0]
+    7218:	97ffec1a 	bl	2280 <__errno_location@plt>
+    721c:	b9400000 	ldr	w0, [x0]
+    7220:	97ffebd0 	bl	2160 <strerror@plt>
+    7224:	aa0003e4 	mov	x4, x0
+    7228:	aa1403e3 	mov	x3, x20
+    722c:	90000002 	adrp	x2, 7000 <_Z16check_timer_flagv+0xcc>
+    7230:	913b2042 	add	x2, x2, #0xec8
+    7234:	52800041 	mov	w1, #0x2                   	// #2
+    7238:	aa1303e0 	mov	x0, x19
+    723c:	97ffebb9 	bl	2120 <__fprintf_chk@plt>
+    7240:	52800020 	mov	w0, #0x1                   	// #1
+    7244:	97ffec5f 	bl	23c0 <exit@plt>
+    7248:	d503201f 	nop
+    724c:	d503201f 	nop
 
-0000000000007100 <m5_quiesce_addr>:
-    7100:	b00000c9 	adrp	x9, 20000 <__data_start>
-    7104:	f9419129 	ldr	x9, [x9, #800]
-    7108:	d280200a 	mov	x10, #0x100                 	// #256
-    710c:	f86a6920 	ldr	x0, [x9, x10]
-    7110:	d65f03c0 	ret
+0000000000007250 <unmap_m5_mem>:
+    7250:	a9be7bfd 	stp	x29, x30, [sp, #-32]!
+    7254:	910003fd 	mov	x29, sp
+    7258:	f9000bf3 	str	x19, [sp, #16]
+    725c:	b00000d3 	adrp	x19, 20000 <__data_start>
+    7260:	f9419260 	ldr	x0, [x19, #800]
+    7264:	b4000080 	cbz	x0, 7274 <unmap_m5_mem+0x24>
+    7268:	d2a00021 	mov	x1, #0x10000               	// #65536
+    726c:	97ffebe5 	bl	2200 <munmap@plt>
+    7270:	f901927f 	str	xzr, [x19, #800]
+    7274:	f9400bf3 	ldr	x19, [sp, #16]
+    7278:	a8c27bfd 	ldp	x29, x30, [sp], #32
+    727c:	d65f03c0 	ret
 
-0000000000007114 <m5_quiesce_ns_addr>:
-    7114:	b00000c9 	adrp	x9, 20000 <__data_start>
-    7118:	f9419129 	ldr	x9, [x9, #800]
-    711c:	d280400a 	mov	x10, #0x200                 	// #512
-    7120:	f86a6920 	ldr	x0, [x9, x10]
-    7124:	d65f03c0 	ret
+0000000000007280 <m5_arm_addr>:
+    7280:	b00000c9 	adrp	x9, 20000 <__data_start>
+    7284:	f9419129 	ldr	x9, [x9, #800]
+    7288:	d280000a 	mov	x10, #0x0                   	// #0
+    728c:	f86a6920 	ldr	x0, [x9, x10]
+    7290:	d65f03c0 	ret
 
-0000000000007128 <m5_quiesce_cycle_addr>:
-    7128:	b00000c9 	adrp	x9, 20000 <__data_start>
-    712c:	f9419129 	ldr	x9, [x9, #800]
-    7130:	d280600a 	mov	x10, #0x300                 	// #768
-    7134:	f86a6920 	ldr	x0, [x9, x10]
-    7138:	d65f03c0 	ret
+0000000000007294 <m5_quiesce_addr>:
+    7294:	b00000c9 	adrp	x9, 20000 <__data_start>
+    7298:	f9419129 	ldr	x9, [x9, #800]
+    729c:	d280200a 	mov	x10, #0x100                 	// #256
+    72a0:	f86a6920 	ldr	x0, [x9, x10]
+    72a4:	d65f03c0 	ret
 
-000000000000713c <m5_quiesce_time_addr>:
-    713c:	b00000c9 	adrp	x9, 20000 <__data_start>
-    7140:	f9419129 	ldr	x9, [x9, #800]
-    7144:	d280800a 	mov	x10, #0x400                 	// #1024
-    7148:	f86a6920 	ldr	x0, [x9, x10]
-    714c:	d65f03c0 	ret
+00000000000072a8 <m5_quiesce_ns_addr>:
+    72a8:	b00000c9 	adrp	x9, 20000 <__data_start>
+    72ac:	f9419129 	ldr	x9, [x9, #800]
+    72b0:	d280400a 	mov	x10, #0x200                 	// #512
+    72b4:	f86a6920 	ldr	x0, [x9, x10]
+    72b8:	d65f03c0 	ret
 
-0000000000007150 <m5_rpns_addr>:
-    7150:	b00000c9 	adrp	x9, 20000 <__data_start>
-    7154:	f9419129 	ldr	x9, [x9, #800]
-    7158:	d280e00a 	mov	x10, #0x700                 	// #1792
-    715c:	f86a6920 	ldr	x0, [x9, x10]
-    7160:	d65f03c0 	ret
+00000000000072bc <m5_quiesce_cycle_addr>:
+    72bc:	b00000c9 	adrp	x9, 20000 <__data_start>
+    72c0:	f9419129 	ldr	x9, [x9, #800]
+    72c4:	d280600a 	mov	x10, #0x300                 	// #768
+    72c8:	f86a6920 	ldr	x0, [x9, x10]
+    72cc:	d65f03c0 	ret
 
-0000000000007164 <m5_wake_cpu_addr>:
-    7164:	b00000c9 	adrp	x9, 20000 <__data_start>
-    7168:	f9419129 	ldr	x9, [x9, #800]
-    716c:	d281200a 	mov	x10, #0x900                 	// #2304
-    7170:	f86a6920 	ldr	x0, [x9, x10]
-    7174:	d65f03c0 	ret
+00000000000072d0 <m5_quiesce_time_addr>:
+    72d0:	b00000c9 	adrp	x9, 20000 <__data_start>
+    72d4:	f9419129 	ldr	x9, [x9, #800]
+    72d8:	d280800a 	mov	x10, #0x400                 	// #1024
+    72dc:	f86a6920 	ldr	x0, [x9, x10]
+    72e0:	d65f03c0 	ret
 
-0000000000007178 <m5_exit_addr>:
-    7178:	b00000c9 	adrp	x9, 20000 <__data_start>
-    717c:	f9419129 	ldr	x9, [x9, #800]
-    7180:	d284200a 	mov	x10, #0x2100                	// #8448
-    7184:	f86a6920 	ldr	x0, [x9, x10]
-    7188:	d65f03c0 	ret
+00000000000072e4 <m5_rpns_addr>:
+    72e4:	b00000c9 	adrp	x9, 20000 <__data_start>
+    72e8:	f9419129 	ldr	x9, [x9, #800]
+    72ec:	d280e00a 	mov	x10, #0x700                 	// #1792
+    72f0:	f86a6920 	ldr	x0, [x9, x10]
+    72f4:	d65f03c0 	ret
 
-000000000000718c <m5_fail_addr>:
-    718c:	b00000c9 	adrp	x9, 20000 <__data_start>
-    7190:	f9419129 	ldr	x9, [x9, #800]
-    7194:	d284400a 	mov	x10, #0x2200                	// #8704
-    7198:	f86a6920 	ldr	x0, [x9, x10]
-    719c:	d65f03c0 	ret
+00000000000072f8 <m5_wake_cpu_addr>:
+    72f8:	b00000c9 	adrp	x9, 20000 <__data_start>
+    72fc:	f9419129 	ldr	x9, [x9, #800]
+    7300:	d281200a 	mov	x10, #0x900                 	// #2304
+    7304:	f86a6920 	ldr	x0, [x9, x10]
+    7308:	d65f03c0 	ret
 
-00000000000071a0 <m5_sum_addr>:
-    71a0:	b00000c9 	adrp	x9, 20000 <__data_start>
-    71a4:	f9419129 	ldr	x9, [x9, #800]
-    71a8:	d284600a 	mov	x10, #0x2300                	// #8960
-    71ac:	f86a6920 	ldr	x0, [x9, x10]
-    71b0:	d65f03c0 	ret
+000000000000730c <m5_exit_addr>:
+    730c:	b00000c9 	adrp	x9, 20000 <__data_start>
+    7310:	f9419129 	ldr	x9, [x9, #800]
+    7314:	d284200a 	mov	x10, #0x2100                	// #8448
+    7318:	f86a6920 	ldr	x0, [x9, x10]
+    731c:	d65f03c0 	ret
 
-00000000000071b4 <m5_init_param_addr>:
-    71b4:	b00000c9 	adrp	x9, 20000 <__data_start>
-    71b8:	f9419129 	ldr	x9, [x9, #800]
-    71bc:	d286000a 	mov	x10, #0x3000                	// #12288
-    71c0:	f86a6920 	ldr	x0, [x9, x10]
-    71c4:	d65f03c0 	ret
+0000000000007320 <m5_fail_addr>:
+    7320:	b00000c9 	adrp	x9, 20000 <__data_start>
+    7324:	f9419129 	ldr	x9, [x9, #800]
+    7328:	d284400a 	mov	x10, #0x2200                	// #8704
+    732c:	f86a6920 	ldr	x0, [x9, x10]
+    7330:	d65f03c0 	ret
 
-00000000000071c8 <m5_load_symbol_addr>:
-    71c8:	b00000c9 	adrp	x9, 20000 <__data_start>
-    71cc:	f9419129 	ldr	x9, [x9, #800]
-    71d0:	d286200a 	mov	x10, #0x3100                	// #12544
-    71d4:	f86a6920 	ldr	x0, [x9, x10]
-    71d8:	d65f03c0 	ret
+0000000000007334 <m5_sum_addr>:
+    7334:	b00000c9 	adrp	x9, 20000 <__data_start>
+    7338:	f9419129 	ldr	x9, [x9, #800]
+    733c:	d284600a 	mov	x10, #0x2300                	// #8960
+    7340:	f86a6920 	ldr	x0, [x9, x10]
+    7344:	d65f03c0 	ret
 
-00000000000071dc <m5_reset_stats_addr>:
-    71dc:	b00000c9 	adrp	x9, 20000 <__data_start>
-    71e0:	f9419129 	ldr	x9, [x9, #800]
-    71e4:	d288000a 	mov	x10, #0x4000                	// #16384
-    71e8:	f86a6920 	ldr	x0, [x9, x10]
-    71ec:	d65f03c0 	ret
+0000000000007348 <m5_init_param_addr>:
+    7348:	b00000c9 	adrp	x9, 20000 <__data_start>
+    734c:	f9419129 	ldr	x9, [x9, #800]
+    7350:	d286000a 	mov	x10, #0x3000                	// #12288
+    7354:	f86a6920 	ldr	x0, [x9, x10]
+    7358:	d65f03c0 	ret
 
-00000000000071f0 <m5_dump_stats_addr>:
-    71f0:	b00000c9 	adrp	x9, 20000 <__data_start>
-    71f4:	f9419129 	ldr	x9, [x9, #800]
-    71f8:	d288200a 	mov	x10, #0x4100                	// #16640
-    71fc:	f86a6920 	ldr	x0, [x9, x10]
-    7200:	d65f03c0 	ret
+000000000000735c <m5_load_symbol_addr>:
+    735c:	b00000c9 	adrp	x9, 20000 <__data_start>
+    7360:	f9419129 	ldr	x9, [x9, #800]
+    7364:	d286200a 	mov	x10, #0x3100                	// #12544
+    7368:	f86a6920 	ldr	x0, [x9, x10]
+    736c:	d65f03c0 	ret
 
-0000000000007204 <m5_dump_reset_stats_addr>:
-    7204:	b00000c9 	adrp	x9, 20000 <__data_start>
-    7208:	f9419129 	ldr	x9, [x9, #800]
-    720c:	d288400a 	mov	x10, #0x4200                	// #16896
-    7210:	f86a6920 	ldr	x0, [x9, x10]
-    7214:	d65f03c0 	ret
+0000000000007370 <m5_reset_stats_addr>:
+    7370:	b00000c9 	adrp	x9, 20000 <__data_start>
+    7374:	f9419129 	ldr	x9, [x9, #800]
+    7378:	d288000a 	mov	x10, #0x4000                	// #16384
+    737c:	f86a6920 	ldr	x0, [x9, x10]
+    7380:	d65f03c0 	ret
 
-0000000000007218 <m5_checkpoint_addr>:
-    7218:	b00000c9 	adrp	x9, 20000 <__data_start>
-    721c:	f9419129 	ldr	x9, [x9, #800]
-    7220:	d288600a 	mov	x10, #0x4300                	// #17152
-    7224:	f86a6920 	ldr	x0, [x9, x10]
-    7228:	d65f03c0 	ret
+0000000000007384 <m5_dump_stats_addr>:
+    7384:	b00000c9 	adrp	x9, 20000 <__data_start>
+    7388:	f9419129 	ldr	x9, [x9, #800]
+    738c:	d288200a 	mov	x10, #0x4100                	// #16640
+    7390:	f86a6920 	ldr	x0, [x9, x10]
+    7394:	d65f03c0 	ret
 
-000000000000722c <m5_write_file_addr>:
-    722c:	b00000c9 	adrp	x9, 20000 <__data_start>
-    7230:	f9419129 	ldr	x9, [x9, #800]
-    7234:	d289e00a 	mov	x10, #0x4f00                	// #20224
-    7238:	f86a6920 	ldr	x0, [x9, x10]
-    723c:	d65f03c0 	ret
+0000000000007398 <m5_dump_reset_stats_addr>:
+    7398:	b00000c9 	adrp	x9, 20000 <__data_start>
+    739c:	f9419129 	ldr	x9, [x9, #800]
+    73a0:	d288400a 	mov	x10, #0x4200                	// #16896
+    73a4:	f86a6920 	ldr	x0, [x9, x10]
+    73a8:	d65f03c0 	ret
 
-0000000000007240 <m5_read_file_addr>:
-    7240:	b00000c9 	adrp	x9, 20000 <__data_start>
-    7244:	f9419129 	ldr	x9, [x9, #800]
-    7248:	d28a000a 	mov	x10, #0x5000                	// #20480
-    724c:	f86a6920 	ldr	x0, [x9, x10]
-    7250:	d65f03c0 	ret
+00000000000073ac <m5_checkpoint_addr>:
+    73ac:	b00000c9 	adrp	x9, 20000 <__data_start>
+    73b0:	f9419129 	ldr	x9, [x9, #800]
+    73b4:	d288600a 	mov	x10, #0x4300                	// #17152
+    73b8:	f86a6920 	ldr	x0, [x9, x10]
+    73bc:	d65f03c0 	ret
 
-0000000000007254 <m5_debug_break_addr>:
-    7254:	b00000c9 	adrp	x9, 20000 <__data_start>
-    7258:	f9419129 	ldr	x9, [x9, #800]
-    725c:	d28a200a 	mov	x10, #0x5100                	// #20736
-    7260:	f86a6920 	ldr	x0, [x9, x10]
-    7264:	d65f03c0 	ret
+00000000000073c0 <m5_write_file_addr>:
+    73c0:	b00000c9 	adrp	x9, 20000 <__data_start>
+    73c4:	f9419129 	ldr	x9, [x9, #800]
+    73c8:	d289e00a 	mov	x10, #0x4f00                	// #20224
+    73cc:	f86a6920 	ldr	x0, [x9, x10]
+    73d0:	d65f03c0 	ret
 
-0000000000007268 <m5_switch_cpu_addr>:
-    7268:	b00000c9 	adrp	x9, 20000 <__data_start>
-    726c:	f9419129 	ldr	x9, [x9, #800]
-    7270:	d28a400a 	mov	x10, #0x5200                	// #20992
-    7274:	f86a6920 	ldr	x0, [x9, x10]
-    7278:	d65f03c0 	ret
+00000000000073d4 <m5_read_file_addr>:
+    73d4:	b00000c9 	adrp	x9, 20000 <__data_start>
+    73d8:	f9419129 	ldr	x9, [x9, #800]
+    73dc:	d28a000a 	mov	x10, #0x5000                	// #20480
+    73e0:	f86a6920 	ldr	x0, [x9, x10]
+    73e4:	d65f03c0 	ret
 
-000000000000727c <m5_add_symbol_addr>:
-    727c:	b00000c9 	adrp	x9, 20000 <__data_start>
-    7280:	f9419129 	ldr	x9, [x9, #800]
-    7284:	d28a600a 	mov	x10, #0x5300                	// #21248
-    7288:	f86a6920 	ldr	x0, [x9, x10]
-    728c:	d65f03c0 	ret
+00000000000073e8 <m5_debug_break_addr>:
+    73e8:	b00000c9 	adrp	x9, 20000 <__data_start>
+    73ec:	f9419129 	ldr	x9, [x9, #800]
+    73f0:	d28a200a 	mov	x10, #0x5100                	// #20736
+    73f4:	f86a6920 	ldr	x0, [x9, x10]
+    73f8:	d65f03c0 	ret
 
-0000000000007290 <m5_panic_addr>:
-    7290:	b00000c9 	adrp	x9, 20000 <__data_start>
-    7294:	f9419129 	ldr	x9, [x9, #800]
-    7298:	d28a800a 	mov	x10, #0x5400                	// #21504
-    729c:	f86a6920 	ldr	x0, [x9, x10]
-    72a0:	d65f03c0 	ret
+00000000000073fc <m5_switch_cpu_addr>:
+    73fc:	b00000c9 	adrp	x9, 20000 <__data_start>
+    7400:	f9419129 	ldr	x9, [x9, #800]
+    7404:	d28a400a 	mov	x10, #0x5200                	// #20992
+    7408:	f86a6920 	ldr	x0, [x9, x10]
+    740c:	d65f03c0 	ret
 
-00000000000072a4 <m5_work_begin_addr>:
-    72a4:	b00000c9 	adrp	x9, 20000 <__data_start>
-    72a8:	f9419129 	ldr	x9, [x9, #800]
-    72ac:	d28b400a 	mov	x10, #0x5a00                	// #23040
-    72b0:	f86a6920 	ldr	x0, [x9, x10]
-    72b4:	d65f03c0 	ret
+0000000000007410 <m5_add_symbol_addr>:
+    7410:	b00000c9 	adrp	x9, 20000 <__data_start>
+    7414:	f9419129 	ldr	x9, [x9, #800]
+    7418:	d28a600a 	mov	x10, #0x5300                	// #21248
+    741c:	f86a6920 	ldr	x0, [x9, x10]
+    7420:	d65f03c0 	ret
 
-00000000000072b8 <m5_work_end_addr>:
-    72b8:	b00000c9 	adrp	x9, 20000 <__data_start>
-    72bc:	f9419129 	ldr	x9, [x9, #800]
-    72c0:	d28b600a 	mov	x10, #0x5b00                	// #23296
-    72c4:	f86a6920 	ldr	x0, [x9, x10]
-    72c8:	d65f03c0 	ret
+0000000000007424 <m5_panic_addr>:
+    7424:	b00000c9 	adrp	x9, 20000 <__data_start>
+    7428:	f9419129 	ldr	x9, [x9, #800]
+    742c:	d28a800a 	mov	x10, #0x5400                	// #21504
+    7430:	f86a6920 	ldr	x0, [x9, x10]
+    7434:	d65f03c0 	ret
 
-00000000000072cc <m5_dist_toggle_sync_addr>:
-    72cc:	b00000c9 	adrp	x9, 20000 <__data_start>
-    72d0:	f9419129 	ldr	x9, [x9, #800]
-    72d4:	d28c400a 	mov	x10, #0x6200                	// #25088
-    72d8:	f86a6920 	ldr	x0, [x9, x10]
-    72dc:	d65f03c0 	ret
+0000000000007438 <m5_work_begin_addr>:
+    7438:	b00000c9 	adrp	x9, 20000 <__data_start>
+    743c:	f9419129 	ldr	x9, [x9, #800]
+    7440:	d28b400a 	mov	x10, #0x5a00                	// #23040
+    7444:	f86a6920 	ldr	x0, [x9, x10]
+    7448:	d65f03c0 	ret
 
-00000000000072e0 <m5_workload_addr>:
-    72e0:	b00000c9 	adrp	x9, 20000 <__data_start>
-    72e4:	f9419129 	ldr	x9, [x9, #800]
-    72e8:	d28e000a 	mov	x10, #0x7000                	// #28672
-    72ec:	f86a6920 	ldr	x0, [x9, x10]
-    72f0:	d65f03c0 	ret
-    72f4:	d503201f 	nop
-    72f8:	d503201f 	nop
-    72fc:	d503201f 	nop
+000000000000744c <m5_work_end_addr>:
+    744c:	b00000c9 	adrp	x9, 20000 <__data_start>
+    7450:	f9419129 	ldr	x9, [x9, #800]
+    7454:	d28b600a 	mov	x10, #0x5b00                	// #23296
+    7458:	f86a6920 	ldr	x0, [x9, x10]
+    745c:	d65f03c0 	ret
 
-0000000000007300 <map_m5_mem>:
-    7300:	a9bd7bfd 	stp	x29, x30, [sp, #-48]!
-    7304:	910003fd 	mov	x29, sp
-    7308:	a90153f3 	stp	x19, x20, [sp, #16]
-    730c:	b00000d4 	adrp	x20, 20000 <__data_start>
-    7310:	f9419280 	ldr	x0, [x20, #800]
-    7314:	a9025bf5 	stp	x21, x22, [sp, #32]
-    7318:	b50004c0 	cbnz	x0, 73b0 <map_m5_mem+0xb0>
-    731c:	b00000d5 	adrp	x21, 20000 <__data_start>
-    7320:	f94116a0 	ldr	x0, [x21, #552]
-    7324:	b4000340 	cbz	x0, 738c <map_m5_mem+0x8c>
-    7328:	b00000d6 	adrp	x22, 20000 <__data_start>
-    732c:	52820041 	mov	w1, #0x1002                	// #4098
-    7330:	72a00201 	movk	w1, #0x10, lsl #16
-    7334:	f9411ac0 	ldr	x0, [x22, #560]
-    7338:	97ffeb5a 	bl	20a0 <open@plt>
-    733c:	2a0003f3 	mov	w19, w0
-    7340:	3100041f 	cmn	w0, #0x1
-    7344:	540006a0 	b.eq	7418 <map_m5_mem+0x118>  // b.none
-    7348:	f94116a5 	ldr	x5, [x21, #552]
-    734c:	d2a00021 	mov	x1, #0x10000               	// #65536
-    7350:	2a0003e4 	mov	w4, w0
-    7354:	52800023 	mov	w3, #0x1                   	// #1
-    7358:	52800062 	mov	w2, #0x3                   	// #3
-    735c:	d2800000 	mov	x0, #0x0                   	// #0
-    7360:	97ffeb9c 	bl	21d0 <mmap@plt>
-    7364:	aa0003e1 	mov	x1, x0
-    7368:	2a1303e0 	mov	w0, w19
-    736c:	f9019281 	str	x1, [x20, #800]
-    7370:	97ffebd4 	bl	22c0 <close@plt>
-    7374:	f9419280 	ldr	x0, [x20, #800]
-    7378:	b4000300 	cbz	x0, 73d8 <map_m5_mem+0xd8>
-    737c:	a94153f3 	ldp	x19, x20, [sp, #16]
-    7380:	a9425bf5 	ldp	x21, x22, [sp, #32]
-    7384:	a8c37bfd 	ldp	x29, x30, [sp], #48
-    7388:	d65f03c0 	ret
-    738c:	900000c3 	adrp	x3, 1f000 <__FRAME_END__+0x164f4>
-    7390:	f947e063 	ldr	x3, [x3, #4032]
-    7394:	90000000 	adrp	x0, 7000 <_Z16check_timer_flagv+0xcc>
-    7398:	d28003c2 	mov	x2, #0x1e                  	// #30
-    739c:	d2800021 	mov	x1, #0x1                   	// #1
-    73a0:	913aa000 	add	x0, x0, #0xea8
-    73a4:	f9400063 	ldr	x3, [x3]
-    73a8:	97ffec0e 	bl	23e0 <fwrite@plt>
-    73ac:	17ffffdf 	b	7328 <map_m5_mem+0x28>
-    73b0:	900000c3 	adrp	x3, 1f000 <__FRAME_END__+0x164f4>
-    73b4:	f947f463 	ldr	x3, [x3, #4072]
-    73b8:	d28002e2 	mov	x2, #0x17                  	// #23
-    73bc:	d2800021 	mov	x1, #0x1                   	// #1
-    73c0:	90000000 	adrp	x0, 7000 <_Z16check_timer_flagv+0xcc>
-    73c4:	913a4000 	add	x0, x0, #0xe90
-    73c8:	f9400063 	ldr	x3, [x3]
-    73cc:	97ffec05 	bl	23e0 <fwrite@plt>
-    73d0:	52800020 	mov	w0, #0x1                   	// #1
-    73d4:	97ffebfb 	bl	23c0 <exit@plt>
-    73d8:	900000c0 	adrp	x0, 1f000 <__FRAME_END__+0x164f4>
-    73dc:	f947f400 	ldr	x0, [x0, #4072]
-    73e0:	f9411ad4 	ldr	x20, [x22, #560]
-    73e4:	f9400013 	ldr	x19, [x0]
-    73e8:	97ffeba6 	bl	2280 <__errno_location@plt>
-    73ec:	b9400000 	ldr	w0, [x0]
-    73f0:	97ffeb5c 	bl	2160 <strerror@plt>
-    73f4:	aa0003e4 	mov	x4, x0
-    73f8:	aa1403e3 	mov	x3, x20
-    73fc:	90000002 	adrp	x2, 7000 <_Z16check_timer_flagv+0xcc>
-    7400:	913b8042 	add	x2, x2, #0xee0
-    7404:	52800041 	mov	w1, #0x2                   	// #2
-    7408:	aa1303e0 	mov	x0, x19
-    740c:	97ffeb45 	bl	2120 <__fprintf_chk@plt>
-    7410:	52800020 	mov	w0, #0x1                   	// #1
-    7414:	97ffebeb 	bl	23c0 <exit@plt>
-    7418:	900000c0 	adrp	x0, 1f000 <__FRAME_END__+0x164f4>
-    741c:	f947f400 	ldr	x0, [x0, #4072]
-    7420:	f9411ad4 	ldr	x20, [x22, #560]
-    7424:	f9400013 	ldr	x19, [x0]
-    7428:	97ffeb96 	bl	2280 <__errno_location@plt>
-    742c:	b9400000 	ldr	w0, [x0]
-    7430:	97ffeb4c 	bl	2160 <strerror@plt>
-    7434:	aa0003e4 	mov	x4, x0
-    7438:	aa1403e3 	mov	x3, x20
-    743c:	90000002 	adrp	x2, 7000 <_Z16check_timer_flagv+0xcc>
-    7440:	913b2042 	add	x2, x2, #0xec8
-    7444:	52800041 	mov	w1, #0x2                   	// #2
-    7448:	aa1303e0 	mov	x0, x19
-    744c:	97ffeb35 	bl	2120 <__fprintf_chk@plt>
-    7450:	52800020 	mov	w0, #0x1                   	// #1
-    7454:	97ffebdb 	bl	23c0 <exit@plt>
-    7458:	d503201f 	nop
-    745c:	d503201f 	nop
+0000000000007460 <m5_dist_toggle_sync_addr>:
+    7460:	b00000c9 	adrp	x9, 20000 <__data_start>
+    7464:	f9419129 	ldr	x9, [x9, #800]
+    7468:	d28c400a 	mov	x10, #0x6200                	// #25088
+    746c:	f86a6920 	ldr	x0, [x9, x10]
+    7470:	d65f03c0 	ret
 
-0000000000007460 <unmap_m5_mem>:
-    7460:	a9be7bfd 	stp	x29, x30, [sp, #-32]!
-    7464:	910003fd 	mov	x29, sp
-    7468:	f9000bf3 	str	x19, [sp, #16]
-    746c:	b00000d3 	adrp	x19, 20000 <__data_start>
-    7470:	f9419260 	ldr	x0, [x19, #800]
-    7474:	b4000080 	cbz	x0, 7484 <unmap_m5_mem+0x24>
-    7478:	d2a00021 	mov	x1, #0x10000               	// #65536
-    747c:	97ffeb61 	bl	2200 <munmap@plt>
-    7480:	f901927f 	str	xzr, [x19, #800]
-    7484:	f9400bf3 	ldr	x19, [sp, #16]
-    7488:	a8c27bfd 	ldp	x29, x30, [sp], #32
-    748c:	d65f03c0 	ret
+0000000000007474 <m5_workload_addr>:
+    7474:	b00000c9 	adrp	x9, 20000 <__data_start>
+    7478:	f9419129 	ldr	x9, [x9, #800]
+    747c:	d28e000a 	mov	x10, #0x7000                	// #28672
+    7480:	f86a6920 	ldr	x0, [x9, x10]
+    7484:	d65f03c0 	ret
+    7488:	d503201f 	nop
+    748c:	d503201f 	nop
 
 0000000000007490 <__aarch64_ldadd4_relax>:
     7490:	d503245f 	bti	c

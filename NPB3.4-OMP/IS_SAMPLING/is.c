@@ -863,6 +863,7 @@ void rank( int iteration )
         #pragma omp master
         {
             if (iteration == 2) {
+                map_m5_mem();
                 m5_exit_addr(0);  /* Exit 1: switching cpus after this exit; first checkpoint taken here*/
             }
         }
