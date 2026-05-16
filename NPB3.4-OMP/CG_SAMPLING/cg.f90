@@ -661,6 +661,35 @@ endif
 #endif
 
 !---------------------------------------------------------------------
+! Warm up caches
+!---------------------------------------------------------------------
+if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+   !$omp do
+   do j=starting_iter,starting_iter+warmup_iters-1
+      suml = 0.d0
+      do k=rowstr(j),rowstr(j+1)-1
+          suml = suml + a(k)*p(colidx(k))
+      enddo
+      q(j) = suml
+   enddo
+   !$omp end do
+endif
+
+!---------------------------------------------------------------------
+! Second exit: done warmup the caches; now set up pickle device if
+!              enabled
+!---------------------------------------------------------------------
+#if ENABLE_GEM5==1
+if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+   !$omp barrier
+   !$omp master
+      call m5_exit()
+   !$omp end master
+   !$omp barrier
+endif
+#endif
+
+!---------------------------------------------------------------------
 ! Setup pickle device if needed
 !---------------------------------------------------------------------
 
@@ -717,22 +746,8 @@ endif
 #endif
 
 !---------------------------------------------------------------------
-! Warm up cores
-!---------------------------------------------------------------------
-if (with_prefetch .eq. 1 .and. sampling_site == 1) then
-   !$omp do
-   do j=starting_iter,starting_iter+warmup_iters-1
-      suml = 0.d0
-      do k=rowstr(j),rowstr(j+1)-1
-          suml = suml + a(k)*p(colidx(k))
-      enddo
-      q(j) = suml
-   enddo
-   !$omp end do
-endif
-
-!---------------------------------------------------------------------
-! Second exit: done warmup the cores; second checkpoint
+! Third exit: done setting up pickle device if enabled; ROI starts
+!             here
 !---------------------------------------------------------------------
 #if ENABLE_GEM5==1
 if (with_prefetch .eq. 1 .and. sampling_site == 1) then
@@ -746,8 +761,9 @@ endif
 
 !---------------------------------------------------------------------
 ! Execute benchmark iterations
-! gem5 is supposed to run for a fixed amount of time, so we don't need
-! to have the third exit!
+! gem5 is supposed to run for a fixed amount of time/iterations after
+! this point, so either the program exits after a fixed amount of
+! time/iterations, or the program encounters the fourth exit!
 !---------------------------------------------------------------------
 
 if (with_prefetch .eq. 1 .and. sampling_site == 1) then
@@ -779,7 +795,11 @@ else
 !$omp end do
 endif
 
-! Here we exit if we spill over the sampling site 1
+!---------------------------------------------------------------------
+! Fourth exit: in case that we spill over after simulating for a
+!              certain amount of time/iterations, here we exit the
+!              simulation
+!---------------------------------------------------------------------
 #if ENABLE_GEM5==1
 if (with_prefetch .eq. 1 .and. sampling_site == 1) then
    !$omp barrier
@@ -884,6 +904,35 @@ endif
 #endif
 
 !---------------------------------------------------------------------
+! Warm up caches
+!---------------------------------------------------------------------
+if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+   !$omp do
+   do j=starting_iter,starting_iter+warmup_iters-1
+      suml = 0.d0
+      do k=rowstr(j),rowstr(j+1)-1
+            suml = suml + a(k)*z(colidx(k))
+      enddo
+      r(j) = suml
+   enddo
+   !$omp end do
+endif
+
+!---------------------------------------------------------------------
+! Second exit: done warmup the caches; now set up pickle device if
+!              enabled
+!---------------------------------------------------------------------
+#if ENABLE_GEM5==1
+if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+   !$omp barrier
+   !$omp master
+      call m5_exit()
+   !$omp end master
+   !$omp barrier
+endif
+#endif
+
+!---------------------------------------------------------------------
 ! Setup pickle device if needed
 !---------------------------------------------------------------------
 
@@ -940,22 +989,8 @@ endif
 #endif
 
 !---------------------------------------------------------------------
-! Warm up cores
-!---------------------------------------------------------------------
-if (with_prefetch .eq. 1 .and. sampling_site == 2) then
-   !$omp do
-   do j=starting_iter,starting_iter+warmup_iters-1
-      suml = 0.d0
-      do k=rowstr(j),rowstr(j+1)-1
-            suml = suml + a(k)*z(colidx(k))
-      enddo
-      r(j) = suml
-   enddo
-   !$omp end do
-endif
-
-!---------------------------------------------------------------------
-! Second exit: done warmup the cores; second checkpoint
+! Third exit: done setting up pickle device if enabled; ROI starts
+!             here
 !---------------------------------------------------------------------
 #if ENABLE_GEM5==1
 if (with_prefetch .eq. 1 .and. sampling_site == 2) then
@@ -969,8 +1004,9 @@ endif
 
 !---------------------------------------------------------------------
 ! Execute benchmark iterations
-! gem5 is supposed to run for a fixed amount of time, so we don't need
-! to have the third exit!
+! gem5 is supposed to run for a fixed amount of time/iterations after
+! this point, so either the program exits after a fixed amount of
+! time/iterations, or the program encounters the fourth exit!
 !---------------------------------------------------------------------
 
 if (with_prefetch .eq. 1 .and. sampling_site == 2) then
@@ -1002,7 +1038,11 @@ else
 !$omp end do
 endif
 
-! Here we exit if we spill over the sampling site 2
+!---------------------------------------------------------------------
+! Fourth exit: in case that we spill over after simulating for a
+!              certain amount of time/iterations, here we exit the
+!              simulation
+!---------------------------------------------------------------------
 #if ENABLE_GEM5==1
 if (with_prefetch .eq. 1 .and. sampling_site == 2) then
    !$omp barrier
@@ -1012,6 +1052,7 @@ if (with_prefetch .eq. 1 .and. sampling_site == 2) then
    !$omp barrier
 endif
 #endif
+!---------------------------------------------------------------------
 
 !---------------------------------------------------------------------
 !  At this point, r contains A.z
