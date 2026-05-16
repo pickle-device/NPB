@@ -250,7 +250,7 @@ const uint64_t PERF_THREAD_COMPLETE = 1;
 PickleDeviceManager* pdev = NULL;
 
 /* Device specs - populated during setup */
-uint64_t use_pdev = 0;
+uint64_t use_pdev = -1;
 uint64_t prefetch_distance = 0;
 PrefetchMode prefetch_mode = UNKNOWN;
 uint64_t bulk_mode_chunk_size = 0;
@@ -684,6 +684,8 @@ void pickle_setup( void )
     printf("  . Chunk size (should be non-zero in bulk mode): %lu\n",
            (unsigned long)bulk_mode_chunk_size);
 
+    assert((use_pdev == 0) || (use_pdev == 1));
+
     if (use_pdev == 1) {
         /*
          * Create and send the Pickle job describing the IS ranking kernel.
@@ -842,7 +844,7 @@ void rank( int iteration )
     a dynamic schedule should improve load balance, thus, performance     */
 
     #pragma omp for schedule(dynamic, 65536)
-    for( i=0; i<starting_bucket; i++ ) {
+    for ( i=0; i<starting_bucket; i++ ) {
         k1 = i * num_bucket_keys;
         k2 = k1 + num_bucket_keys;
         for ( k = k1; k < k2; k++ )
@@ -868,6 +870,34 @@ void rank( int iteration )
             }
         }
         #pragma omp barrier
+    #endif /* ENABLE_GEM5 */
+
+    #pragma omp for schedule(dynamic, 65536)
+    for ( i=starting_bucket; i<starting_bucket+warmup_buckets; i++ ) {
+        k1 = i * num_bucket_keys;
+        k2 = k1 + num_bucket_keys;
+        for ( k = k1; k < k2; k++ )
+            key_buff_ptr[k] = 0;
+        m = (i > 0)? bucket_ptrs[i-1] : 0;
+        {
+            /* Original loop without prefetch hints */
+            for ( k = m; k < bucket_ptrs[i]; k++ )
+                key_buff_ptr[key_buff_ptr2[k]]++;
+        }
+        key_buff_ptr[k1] += m;
+        for ( k = k1+1; k < k2; k++ )
+            key_buff_ptr[k] += key_buff_ptr[k-1];
+    }
+
+    #if ENABLE_GEM5==1
+    #pragma omp barrier
+    #pragma omp master
+    {
+        if (iteration == 2) {
+            m5_exit_addr(0);  /* Exit 2: done warmup the cores; now set up pickle device if enabled*/
+        }
+    }
+    #pragma omp barrier
     #endif /* ENABLE_GEM5 */
 
     /*  ============================================================  */
@@ -902,36 +932,19 @@ void rank( int iteration )
         #pragma omp barrier
     #endif
 
-    #pragma omp for schedule(dynamic, 65536)
-    for( i=starting_bucket; i<starting_bucket+warmup_buckets; i++ ) {
-        k1 = i * num_bucket_keys;
-        k2 = k1 + num_bucket_keys;
-        for ( k = k1; k < k2; k++ )
-            key_buff_ptr[k] = 0;
-        m = (i > 0)? bucket_ptrs[i-1] : 0;
-        {
-            /* Original loop without prefetch hints */
-            for ( k = m; k < bucket_ptrs[i]; k++ )
-                key_buff_ptr[key_buff_ptr2[k]]++;
-        }
-        key_buff_ptr[k1] += m;
-        for ( k = k1+1; k < k2; k++ )
-            key_buff_ptr[k] += key_buff_ptr[k-1];
-    }
-
     #if ENABLE_GEM5==1
         #pragma omp barrier
         #pragma omp master
         {
             if (iteration == 2) {
-                m5_exit_addr(0);  /* Exit 2: done warmup the cores; second checkpoint taken here*/
+                m5_exit_addr(0);  /* Exit 3: done setting up pickle device if enabled; ROI starts here*/
             }
         }
         #pragma omp barrier
     #endif /* ENABLE_GEM5 */
 
-    // gem5 is supposed to run for a fixed amount of time, so we don't need
-    // to have the third exit!
+    // gem5 is supposed to run for a fixed amount of time/iterations after this point, so either the program
+    // exits after a fixed amount of time/iterations, or the program encounters the fourth exit!
 
 #ifdef SCHED_CYCLIC
     #pragma omp for schedule(static,1)
@@ -1001,7 +1014,7 @@ void rank( int iteration )
     #pragma omp master
     {
         if (iteration == 2) {
-            m5_exit_addr(0);  /* Exit 3: in case that we spill over after simulating for a certain amount of seconds, here we exit the simulation */
+            m5_exit_addr(0);  /* Exit 4: in case that we spill over after simulating for a certain amount of time/iterations, here we exit the simulation */
         }
     }
     #pragma omp barrier
