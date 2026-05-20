@@ -279,12 +279,6 @@
 !---------------------------------------------------------------------
 !  The call to the conjugate gradient routine:
 !---------------------------------------------------------------------
-! Exit 1: cpu switching after this exit
-#if ENABLE_GEM5==1
-     call map_m5_mem()
-     call m5_exit()
-     !call wait_till_pdev_available()
-#endif
          call conj_grad ( rnorm , 0, sampling_site,                   &
      &                      starting_iter, warmup_iters )
 !---------------------------------------------------------------------
@@ -631,7 +625,7 @@
 !  ============================================================
 !
 
-if (sampling_site == 1) then
+if (sampling_site .eq. 1) then
    ! Execute the first starting_iter iterations normally
    ! Then use Pickle for the remaining iterations
    !$omp do
@@ -650,9 +644,10 @@ endif
 ! First exit: cpu switching after this exit; first checkpoint
 !---------------------------------------------------------------------
 #if ENABLE_GEM5==1
-if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+if (with_prefetch .eq. 1 .and. sampling_site .eq. 1) then
    !$omp barrier
    !$omp master
+      write(*,*) 'sampling site 1: start warmup: [', starting_iter, '...', starting_iter+warmup_iters-1, ']'
       call map_m5_mem()
       call m5_exit()
    !$omp end master
@@ -663,7 +658,7 @@ endif
 !---------------------------------------------------------------------
 ! Warm up caches
 !---------------------------------------------------------------------
-if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+if (with_prefetch .eq. 1 .and. sampling_site .eq. 1) then
    !$omp do
    do j=starting_iter,starting_iter+warmup_iters-1
       suml = 0.d0
@@ -680,9 +675,10 @@ endif
 !              enabled
 !---------------------------------------------------------------------
 #if ENABLE_GEM5==1
-if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+if (with_prefetch .eq. 1 .and. sampling_site .eq. 1) then
    !$omp barrier
    !$omp master
+      write(*,*) 'sampling site 1: done warm up'
       call m5_exit()
    !$omp end master
    !$omp barrier
@@ -709,7 +705,8 @@ endif
 #if ENABLE_PICKLEDEVICE==1
    !$omp barrier
    !$omp master
-   if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+   if (with_prefetch .eq. 1 .and. sampling_site .eq. 1) then
+      write(*,*) 'sampling site 1: setup pickle device'
       call pickle_cg_device_init()
 
       if (pkl_use_pdev .eq. 1) then
@@ -749,10 +746,16 @@ endif
 ! Third exit: done setting up pickle device if enabled; ROI starts
 !             here
 !---------------------------------------------------------------------
+if (with_prefetch .eq. 1 .and. sampling_site .eq. 1) then
+   current_starting_iter = starting_iter + warmup_iters
+else
+   current_starting_iter = 1
+endif
 #if ENABLE_GEM5==1
-if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+if (with_prefetch .eq. 1 .and. sampling_site .eq. 1) then
    !$omp barrier
    !$omp master
+      write(*,*) 'sampling site 1: ROI Start; starting from ', current_starting_iter
       call m5_exit()
    !$omp end master
    !$omp barrier
@@ -765,13 +768,6 @@ endif
 ! this point, so either the program exits after a fixed amount of
 ! time/iterations, or the program encounters the fourth exit!
 !---------------------------------------------------------------------
-
-if (with_prefetch .eq. 1 .and. sampling_site == 1) then
-   current_starting_iter = starting_iter + warmup_iters
-else
-   current_starting_iter = 1
-endif
-
 if (with_prefetch .eq. 1 .and. pkl_use_pdev .eq. 1) then
 !$omp do
          do j=current_starting_iter,lastrow-firstrow+1
@@ -801,7 +797,7 @@ endif
 !              simulation
 !---------------------------------------------------------------------
 #if ENABLE_GEM5==1
-if (with_prefetch .eq. 1 .and. sampling_site == 1) then
+if (with_prefetch .eq. 1 .and. sampling_site .eq. 1) then
    !$omp barrier
    !$omp master
       call m5_exit()
@@ -874,7 +870,7 @@ endif
 !  ============================================================
 !
 
-if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+if (with_prefetch .eq. 1 .and. sampling_site .eq. 2) then
    ! Execute the first starting_iter iterations normally
    ! Then use Pickle for the remaining iterations
    !$omp do
@@ -893,9 +889,10 @@ endif
 ! First exit: cpu switching after this exit; first checkpoint
 !---------------------------------------------------------------------
 #if ENABLE_GEM5==1
-if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+if (with_prefetch .eq. 1 .and. sampling_site .eq. 2) then
    !$omp barrier
    !$omp master
+      write(*,*) 'sampling site 2: start warmup: [', starting_iter, '...', starting_iter+warmup_iters-1, ']'
       call map_m5_mem()
       call m5_exit()
    !$omp end master
@@ -906,7 +903,7 @@ endif
 !---------------------------------------------------------------------
 ! Warm up caches
 !---------------------------------------------------------------------
-if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+if (with_prefetch .eq. 1 .and. sampling_site .eq. 2) then
    !$omp do
    do j=starting_iter,starting_iter+warmup_iters-1
       suml = 0.d0
@@ -923,9 +920,10 @@ endif
 !              enabled
 !---------------------------------------------------------------------
 #if ENABLE_GEM5==1
-if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+if (with_prefetch .eq. 1 .and. sampling_site .eq. 2) then
    !$omp barrier
    !$omp master
+      write(*,*) 'sampling site 2: done warm up'
       call m5_exit()
    !$omp end master
    !$omp barrier
@@ -952,7 +950,8 @@ endif
 #if ENABLE_PICKLEDEVICE==1
    !$omp barrier   
    !$omp master
-   if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+   if (with_prefetch .eq. 1 .and. sampling_site .eq. 2) then
+      write(*,*) 'sampling site 2: setup pickle device'
       call pickle_cg_device_init()
 
       if (pkl_use_pdev .eq. 1) then
@@ -992,10 +991,17 @@ endif
 ! Third exit: done setting up pickle device if enabled; ROI starts
 !             here
 !---------------------------------------------------------------------
+if (with_prefetch .eq. 1 .and. sampling_site .eq. 2) then
+   current_starting_iter = starting_iter + warmup_iters
+else
+   current_starting_iter = 1
+endif
+
 #if ENABLE_GEM5==1
-if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+if (with_prefetch .eq. 1 .and. sampling_site .eq. 2) then
    !$omp barrier
    !$omp master
+      write(*,*) 'sampling site 2: ROI Start; starting from ', current_starting_iter
       call m5_exit()
    !$omp end master
    !$omp barrier
@@ -1008,12 +1014,6 @@ endif
 ! this point, so either the program exits after a fixed amount of
 ! time/iterations, or the program encounters the fourth exit!
 !---------------------------------------------------------------------
-
-if (with_prefetch .eq. 1 .and. sampling_site == 2) then
-   current_starting_iter = starting_iter + warmup_iters
-else
-   current_starting_iter = 1
-endif
 
 if (with_prefetch .eq. 1 .and. pkl_use_pdev .eq. 1) then
 !$omp do
@@ -1044,7 +1044,7 @@ endif
 !              simulation
 !---------------------------------------------------------------------
 #if ENABLE_GEM5==1
-if (with_prefetch .eq. 1 .and. sampling_site == 2) then
+if (with_prefetch .eq. 1 .and. sampling_site .eq. 2) then
    !$omp barrier
    !$omp master
       call m5_exit()
@@ -1072,6 +1072,7 @@ endif
 
       rnorm = sqrt( sum )
 
+      write (*,*) 'done conj_grad'
 
 
       return
