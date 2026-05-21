@@ -2871,14 +2871,15 @@ Disassembly of section .text:
   404e2c:	7100003f 	cmp	w1, #0x0
   404e30:	5400014d 	b.le	404e58 <_Z4ranki._omp_fn.0+0x7f8>
   404e34:	d2800000 	mov	x0, #0x0                   	// #0
-  404e38:	b8a07b62 	ldrsw	x2, [x27, x0, lsl #2]
-  404e3c:	91000400 	add	x0, x0, #0x1
-  404e40:	b8627b41 	ldr	w1, [x26, x2, lsl #2]
+                                                                               ########## this is Branch Unswitching, where the 0x404f10-0x404f2c loop is for i > 0, and the 0x404e38-0x404e54 loop is for i == 0
+  404e38:	b8a07b62 	ldrsw	x2, [x27, x0, lsl #2]                  ########## The key_buff_ptr[key_buff_ptr2[k]] load
+  404e3c:	91000400 	add	x0, x0, #0x1                           ########## <- WE USE THIS PC TO TRACK HOW MANY ITERATIONS HAVE BEEN EXECUTED
+  404e40:	b8627b41 	ldr	w1, [x26, x2, lsl #2]                  ########## The key_buff_ptr[key_buff_ptr2[k]] load
   404e44:	11000421 	add	w1, w1, #0x1
-  404e48:	b8227b41 	str	w1, [x26, x2, lsl #2]
+  404e48:	b8227b41 	str	w1, [x26, x2, lsl #2]                  ########## The key_buff_ptr[key_buff_ptr2[k]] store
   404e4c:	b94000a1 	ldr	w1, [x5]
   404e50:	6b00003f 	cmp	w1, w0
-  404e54:	54ffff2c 	b.gt	404e38 <_Z4ranki._omp_fn.0+0x7d8>
+  404e54:	54ffff2c 	b.gt	404e38 <_Z4ranki._omp_fn.0+0x7d8>      ########## End of loop check
   404e58:	11000720 	add	w0, w25, #0x1
   404e5c:	b9400141 	ldr	w1, [x10]
   404e60:	93407c00 	sxtw	x0, w0
@@ -2925,14 +2926,14 @@ Disassembly of section .text:
   404f04:	6b0100bf 	cmp	w5, w1
   404f08:	5400014d 	b.le	404f30 <_Z4ranki._omp_fn.0+0x8d0>
   404f0c:	93407c20 	sxtw	x0, w1
-  404f10:	b8a07b65 	ldrsw	x5, [x27, x0, lsl #2]
-  404f14:	91000400 	add	x0, x0, #0x1
-  404f18:	b8657b42 	ldr	w2, [x26, x5, lsl #2]
+  404f10:	b8a07b65 	ldrsw	x5, [x27, x0, lsl #2]                  ########## The key_buff_ptr2[k] load
+  404f14:	91000400 	add	x0, x0, #0x1                           ########## <- WE USE THIS PC TO TRACK HOW MANY ITERATIONS HAVE BEEN EXECUTED
+  404f18:	b8657b42 	ldr	w2, [x26, x5, lsl #2]                  ########## The key_buff_ptr[key_buff_ptr2[k]] load
   404f1c:	11000442 	add	w2, w2, #0x1
-  404f20:	b8257b42 	str	w2, [x26, x5, lsl #2]
+  404f20:	b8257b42 	str	w2, [x26, x5, lsl #2]                  ########## The key_buff_ptr[key_buff_ptr2[k]] store
   404f24:	b94002e2 	ldr	w2, [x23]
   404f28:	6b00005f 	cmp	w2, w0
-  404f2c:	54ffff2c 	b.gt	404f10 <_Z4ranki._omp_fn.0+0x8b0>
+  404f2c:	54ffff2c 	b.gt	404f10 <_Z4ranki._omp_fn.0+0x8b0>      ########## End of loop check
   404f30:	b9400080 	ldr	w0, [x4]
   404f34:	0b000021 	add	w1, w1, w0
   404f38:	b9000081 	str	w1, [x4]

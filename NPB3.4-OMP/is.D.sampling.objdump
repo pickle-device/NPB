@@ -2887,14 +2887,15 @@ Disassembly of section .text:
   404e6c:	f100003f 	cmp	x1, #0x0
   404e70:	5400014d 	b.le	404e98 <_Z4ranki._omp_fn.0+0x844>
   404e74:	d2800000 	mov	x0, #0x0                   	// #0
-  404e78:	f8607b82 	ldr	x2, [x28, x0, lsl #3]
-  404e7c:	91000400 	add	x0, x0, #0x1
-  404e80:	f8627a61 	ldr	x1, [x19, x2, lsl #3]
+                                                                               ########## This is Branch Unswitching, where the 0x404e78 - 0x404e94 loop is for i == 0, and the 0x404f38 - 0x404f54 loop is for i > 0
+  404e78:	f8607b82 	ldr	x2, [x28, x0, lsl #3]                  ########## The key_buff_ptr2[k] load
+  404e7c:	91000400 	add	x0, x0, #0x1                           ########## <- WE USE THIS PC TO TRACK HOW MANY ITERATIONS HAVE BEEN EXECUTED
+  404e80:	f8627a61 	ldr	x1, [x19, x2, lsl #3]                  ########## The key_buff_ptr[key_buff_ptr2[k]] load
   404e84:	91000421 	add	x1, x1, #0x1
-  404e88:	f8227a61 	str	x1, [x19, x2, lsl #3]
+  404e88:	f8227a61 	str	x1, [x19, x2, lsl #3]                  ########## The key_buff_ptr[key_buff_ptr2[k]] store
   404e8c:	f8696b01 	ldr	x1, [x24, x9]
   404e90:	eb00003f 	cmp	x1, x0
-  404e94:	54ffff2c 	b.gt	404e78 <_Z4ranki._omp_fn.0+0x824>
+  404e94:	54ffff2c 	b.gt	404e78 <_Z4ranki._omp_fn.0+0x824>      ########## End of loop check
   404e98:	f87a7a61 	ldr	x1, [x19, x26, lsl #3]
   404e9c:	91000740 	add	x0, x26, #0x1
   404ea0:	f10006bf 	cmp	x21, #0x1
@@ -2935,14 +2936,14 @@ Disassembly of section .text:
   404f2c:	5400016d 	b.le	404f58 <_Z4ranki._omp_fn.0+0x904>
   404f30:	aa0103e0 	mov	x0, x1
   404f34:	d503201f 	nop
-  404f38:	f8607b83 	ldr	x3, [x28, x0, lsl #3]
-  404f3c:	91000400 	add	x0, x0, #0x1
-  404f40:	f8637a62 	ldr	x2, [x19, x3, lsl #3]
+  404f38:	f8607b83 	ldr	x3, [x28, x0, lsl #3]                  ########## The key_buff_ptr2[k] load
+  404f3c:	91000400 	add	x0, x0, #0x1                           ########## <- WE USE THIS PC TO TRACK HOW MANY ITERATIONS HAVE BEEN EXECUTED
+  404f40:	f8637a62 	ldr	x2, [x19, x3, lsl #3]                  ########## The key_buff_ptr[key_buff_ptr2[k]] load
   404f44:	91000442 	add	x2, x2, #0x1
-  404f48:	f8237a62 	str	x2, [x19, x3, lsl #3]
+  404f48:	f8237a62 	str	x2, [x19, x3, lsl #3]                  ########## The key_buff_ptr[key_buff_ptr2[k]] store
   404f4c:	f9400342 	ldr	x2, [x26]
   404f50:	eb00005f 	cmp	x2, x0
-  404f54:	54ffff2c 	b.gt	404f38 <_Z4ranki._omp_fn.0+0x8e4>
+  404f54:	54ffff2c 	b.gt	404f38 <_Z4ranki._omp_fn.0+0x8e4>      ########## End of loop check
   404f58:	f8697a62 	ldr	x2, [x19, x9, lsl #3]
   404f5c:	91000520 	add	x0, x9, #0x1
   404f60:	8b020021 	add	x1, x1, x2
@@ -2968,15 +2969,15 @@ Disassembly of section .text:
   404fb0:	54fffd4d 	b.le	404f58 <_Z4ranki._omp_fn.0+0x904>
   404fb4:	aa0103e0 	mov	x0, x1
                                                                                ########## This is Branch Unswitching, where the 0x404fb8 - 0x404fe0 loop is for i > 0, and the 0x405000 - 0x405028 loop is for i == 0
-  404fb8:	8b1b0003 	add	x3, x0, x27                                        ########## The k + prefetch_distance calculation <- WE USE THIS PC TO TRACK HOW MANY ITERATIONS HAVE BEEN EXECUTED
-  404fbc:	eb02007f 	cmp	x3, x2                                             ########## The k + prefetch_distance < next_ptr check
+  404fb8:	8b1b0003 	add	x3, x0, x27                            ########## The k + prefetch_distance calculation <- WE USE THIS PC TO TRACK HOW MANY ITERATIONS HAVE BEEN EXECUTED
+  404fbc:	eb02007f 	cmp	x3, x2                                 ########## The k + prefetch_distance < next_ptr check
   404fc0:	54000042 	b.cs	404fc8 <_Z4ranki._omp_fn.0+0x974>  // b.hs, b.nlast
-  404fc4:	f90002e0 	str	x0, [x23]                                          ########## The prefetch hint
-  404fc8:	f8607b8a 	ldr	x10, [x28, x0, lsl #3]                             ########## The key_buff_ptr2[k] load
+  404fc4:	f90002e0 	str	x0, [x23]                              ########## The prefetch hint
+  404fc8:	f8607b8a 	ldr	x10, [x28, x0, lsl #3]                 ########## The key_buff_ptr2[k] load
   404fcc:	91000400 	add	x0, x0, #0x1
-  404fd0:	f86a7a63 	ldr	x3, [x19, x10, lsl #3]                             ########## The key_buff_ptr[key_buff_ptr2[k]] load
+  404fd0:	f86a7a63 	ldr	x3, [x19, x10, lsl #3]                 ########## The key_buff_ptr[key_buff_ptr2[k]] load
   404fd4:	91000463 	add	x3, x3, #0x1
-  404fd8:	f82a7a63 	str	x3, [x19, x10, lsl #3]                             ########## The key_buff_ptr[key_buff_ptr2[k]] store
+  404fd8:	f82a7a63 	str	x3, [x19, x10, lsl #3]                 ########## The key_buff_ptr[key_buff_ptr2[k]] store
   404fdc:	eb02001f 	cmp	x0, x2
   404fe0:	54fffec1 	b.ne	404fb8 <_Z4ranki._omp_fn.0+0x964>  // b.any
   404fe4:	17ffffdd 	b	404f58 <_Z4ranki._omp_fn.0+0x904>
@@ -2986,15 +2987,15 @@ Disassembly of section .text:
   404ff4:	54fff52d 	b.le	404e98 <_Z4ranki._omp_fn.0+0x844>
   404ff8:	d2800000 	mov	x0, #0x0                   	// #0
   404ffc:	d503201f 	nop
-  405000:	8b000362 	add	x2, x27, x0                                        ########## The k + prefetch_distance calculation <- WE USE THIS PC TO TRACK HOW MANY ITERATIONS HAVE BEEN EXECUTED
-  405004:	eb01005f 	cmp	x2, x1                                             ########## The k + prefetch_distance < next_ptr check
+  405000:	8b000362 	add	x2, x27, x0                            ########## The k + prefetch_distance calculation <- WE USE THIS PC TO TRACK HOW MANY ITERATIONS HAVE BEEN EXECUTED
+  405004:	eb01005f 	cmp	x2, x1                                 ########## The k + prefetch_distance < next_ptr check
   405008:	54000042 	b.cs	405010 <_Z4ranki._omp_fn.0+0x9bc>  // b.hs, b.nlast
-  40500c:	f90002e0 	str	x0, [x23]                                          ########## The prefetch hint
-  405010:	f8607b89 	ldr	x9, [x28, x0, lsl #3]                              ########## The key_buff_ptr2[k] load
+  40500c:	f90002e0 	str	x0, [x23]                              ########## The prefetch hint
+  405010:	f8607b89 	ldr	x9, [x28, x0, lsl #3]                  ########## The key_buff_ptr2[k] load
   405014:	91000400 	add	x0, x0, #0x1
-  405018:	f8697a62 	ldr	x2, [x19, x9, lsl #3]                              ########## The key_buff_ptr[key_buff_ptr2[k]] load
+  405018:	f8697a62 	ldr	x2, [x19, x9, lsl #3]                  ########## The key_buff_ptr[key_buff_ptr2[k]] load
   40501c:	91000442 	add	x2, x2, #0x1
-  405020:	f8297a62 	str	x2, [x19, x9, lsl #3]                              ########## The key_buff_ptr[key_buff_ptr2[k]] store
+  405020:	f8297a62 	str	x2, [x19, x9, lsl #3]                  ########## The key_buff_ptr[key_buff_ptr2[k]] store
   405024:	eb01001f 	cmp	x0, x1
   405028:	54fffec1 	b.ne	405000 <_Z4ranki._omp_fn.0+0x9ac>  // b.any
   40502c:	17ffff9b 	b	404e98 <_Z4ranki._omp_fn.0+0x844>
