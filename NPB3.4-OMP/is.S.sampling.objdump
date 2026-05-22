@@ -2532,9 +2532,9 @@ Disassembly of section .text:
   4048e0:	aa0103e4 	mov	x4, x1
   4048e4:	a90197e1 	stp	x1, x5, [sp, #24]
   4048e8:	b9800801 	ldrsw	x1, [x0, #8]
-  4048ec:	d2a00023 	mov	x3, #0x10000               	// #65536
-  4048f0:	d2800022 	mov	x2, #0x1                   	// #1
-  4048f4:	d2800000 	mov	x0, #0x0                   	// #0
+  4048ec:	d2800023 	mov	x3, #0x1                   	// #1
+  4048f0:	d2800000 	mov	x0, #0x0                   	// #0
+  4048f4:	aa0303e2 	mov	x2, x3
   4048f8:	97fff616 	bl	402150 <GOMP_loop_nonmonotonic_dynamic_start@plt>
   4048fc:	36000f20 	tbz	w0, #0, 404ae0 <_Z4ranki._omp_fn.0+0x480>
   404900:	f9400be0 	ldr	x0, [sp, #16]
@@ -2674,9 +2674,9 @@ Disassembly of section .text:
   404b18:	910183e5 	add	x5, sp, #0x60
   404b1c:	aa0003e4 	mov	x4, x0
   404b20:	a90197e0 	stp	x0, x5, [sp, #24]
-  404b24:	d2a00023 	mov	x3, #0x10000               	// #65536
+  404b24:	d2800023 	mov	x3, #0x1                   	// #1
   404b28:	29410420 	ldp	w0, w1, [x1, #8]
-  404b2c:	d2800022 	mov	x2, #0x1                   	// #1
+  404b2c:	aa0303e2 	mov	x2, x3
   404b30:	0b010001 	add	w1, w0, w1
   404b34:	93407c00 	sxtw	x0, w0
   404b38:	93407c21 	sxtw	x1, w1
@@ -2824,9 +2824,9 @@ Disassembly of section .text:
   404d70:	a90217e0 	stp	x0, x5, [sp, #32]
   404d74:	b9400f2a 	ldr	w10, [x25, #12]
   404d78:	b9400b20 	ldr	w0, [x25, #8]
-  404d7c:	d2a00023 	mov	x3, #0x10000               	// #65536
-  404d80:	d2800022 	mov	x2, #0x1                   	// #1
-  404d84:	d2804001 	mov	x1, #0x200                 	// #512
+  404d7c:	d2800023 	mov	x3, #0x1                   	// #1
+  404d80:	d2804001 	mov	x1, #0x200                 	// #512
+  404d84:	aa0303e2 	mov	x2, x3
   404d88:	0b0a0000 	add	w0, w0, w10
   404d8c:	93407c00 	sxtw	x0, w0
   404d90:	97fff4f0 	bl	402150 <GOMP_loop_nonmonotonic_dynamic_start@plt>
@@ -3046,9 +3046,9 @@ Disassembly of section .text:
   4050e0:	29410680 	ldp	w0, w1, [x20, #8]
   4050e4:	9101c3e5 	add	x5, sp, #0x70
   4050e8:	9101a3e4 	add	x4, sp, #0x68
-  4050ec:	d2a00023 	mov	x3, #0x10000               	// #65536
+  4050ec:	d2800023 	mov	x3, #0x1                   	// #1
   4050f0:	0b010000 	add	w0, w0, w1
-  4050f4:	d2800022 	mov	x2, #0x1                   	// #1
+  4050f4:	aa0303e2 	mov	x2, x3
   4050f8:	d2804001 	mov	x1, #0x200                 	// #512
   4050fc:	a90217e4 	stp	x4, x5, [sp, #32]
   405100:	93407c00 	sxtw	x0, w0
@@ -3077,9 +3077,9 @@ Disassembly of section .text:
   40515c:	910183e5 	add	x5, sp, #0x60
   405160:	aa0003e4 	mov	x4, x0
   405164:	a90197e0 	stp	x0, x5, [sp, #24]
-  405168:	d2a00023 	mov	x3, #0x10000               	// #65536
+  405168:	d2800023 	mov	x3, #0x1                   	// #1
   40516c:	29410420 	ldp	w0, w1, [x1, #8]
-  405170:	d2800022 	mov	x2, #0x1                   	// #1
+  405170:	aa0303e2 	mov	x2, x3
   405174:	0b010001 	add	w1, w0, w1
   405178:	93407c00 	sxtw	x0, w0
   40517c:	93407c21 	sxtw	x1, w1

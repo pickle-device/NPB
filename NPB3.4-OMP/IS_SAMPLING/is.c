@@ -843,7 +843,7 @@ void rank( int iteration )
     of the number of keys in the buckets is Gaussian, the use of
     a dynamic schedule should improve load balance, thus, performance     */
 
-    #pragma omp for schedule(dynamic, 65536)
+    #pragma omp for schedule(dynamic)
     for ( i=0; i<starting_bucket; i++ ) {
         k1 = i * num_bucket_keys;
         k2 = k1 + num_bucket_keys;
@@ -872,7 +872,7 @@ void rank( int iteration )
         #pragma omp barrier
     #endif /* ENABLE_GEM5 */
 
-    #pragma omp for schedule(dynamic, 65536)
+    #pragma omp for schedule(dynamic)
     for ( i=starting_bucket; i<starting_bucket+warmup_buckets; i++ ) {
         k1 = i * num_bucket_keys;
         k2 = k1 + num_bucket_keys;
@@ -949,7 +949,7 @@ void rank( int iteration )
 #ifdef SCHED_CYCLIC
     #pragma omp for schedule(static,1)
 #else
-    #pragma omp for schedule(dynamic, 65536)
+    #pragma omp for schedule(dynamic)
 #endif
     for( i=starting_bucket+warmup_buckets; i< NUM_BUCKETS; i++ ) {
 
