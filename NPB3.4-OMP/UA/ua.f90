@@ -228,25 +228,25 @@
              ! Kernel 1: idel → pdiff   (transf  scatter target)
              pkl_kid = 1
              call pickle_ua_setup_idel_kernel_c(pkl_kid,               &
-     &            c_loc(idel(1,1,1,1)),  pkl_idel_n,  pkl_idel_esz,    &
+     &            c_loc(idel(1,1,1,1)),  pkl_idel_n,  pkl_idel_esz,  &
      &            c_loc(pdiff(1,1,1,1)), pkl_pdiff_n, pkl_pdiff_esz)
 
              ! Kernel 2: idmo → pmorx   (transf  gather  source)
              pkl_kid = 2
              call pickle_ua_setup_idmo_kernel_c(pkl_kid,               &
-     &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,  &
+     &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,&
      &            c_loc(pmorx(1)),          pkl_pmor_n, pkl_pmor_esz)
 
              ! Kernel 3: idel → pdiffp  (transfb gather  source)
              pkl_kid = 3
              call pickle_ua_setup_idel_kernel_c(pkl_kid,               &
-     &            c_loc(idel(1,1,1,1)),   pkl_idel_n,  pkl_idel_esz,   &
+     &            c_loc(idel(1,1,1,1)),   pkl_idel_n,  pkl_idel_esz, &
      &            c_loc(pdiffp(1,1,1,1)), pkl_pdiff_n, pkl_pdiff_esz)
 
              ! Kernel 4: idmo → ppmor   (transfb scatter target)
              pkl_kid = 4
              call pickle_ua_setup_idmo_kernel_c(pkl_kid,               &
-     &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,  &
+     &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,&
      &            c_loc(ppmor(1)),          pkl_pmor_n, pkl_pmor_esz)
 
              ! Obtain UCPage communication area

@@ -30,20 +30,24 @@
       double precision, allocatable ::  &
      &       ta1  (:,:,:,:), ta2   (:,:,:,:),  &
      &       trhs (:,:,:,:), t     (:,:,:,:),  &
-     &       tmult(:,:,:,:), dpcelm(:,:,:,:),  &
+     &       tmult(:,:,:,:), dpcelm(:,:,:,:)
+      double precision, allocatable, target ::  &
      &       pdiff(:,:,:,:), pdiffp(:,:,:,:)
 
 !.....double precision arays associated with mortar points
       double precision, allocatable ::  &
      &       umor(:), tmmor (:),  &
-     &       rmor(:), dpcmor(:), pmorx(:), ppmor(:) 
+     &       rmor(:), dpcmor(:)
+      double precision, allocatable, target ::  &
+     &       pmorx(:), ppmor(:)
       double precision, allocatable, target ::  &
      &       mormult(:), tmort(:)
 
 !.... integer arrays associated with element faces
-      integer, allocatable ::  &
+      integer, allocatable, target ::  &
      &        idmo    (:,:,:,:,:,:),  &
-     &        idel    (:,:,    :,:),  &
+     &        idel    (:,:,    :,:)
+      integer, allocatable ::  &
      &        sje     (:,:,    :,:),  &
      &        sje_new (:,:,    :,:),  &
      &        ijel    (:,      :,:),  &
