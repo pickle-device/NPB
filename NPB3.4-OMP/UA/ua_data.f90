@@ -46,8 +46,7 @@
 !.... integer arrays associated with element faces
       integer, allocatable, target ::  &
      &        idmo    (:,:,:,:,:,:),  &
-     &        idel    (:,:,    :,:)
-      integer, allocatable ::  &
+     &        idel    (:,:,    :,:),  &
      &        sje     (:,:,    :,:),  &
      &        sje_new (:,:,    :,:),  &
      &        ijel    (:,      :,:),  &
