@@ -50,6 +50,10 @@ UA: ua
 ua: header	       
 	cd UA; $(MAKE) CLASS=$(CLASS)
 
+UA_SAMPLING: ua_sampling
+ua_sampling: header
+	cd UA_SAMPLING; $(MAKE) CLASS=$(CLASS)
+
 DC: dc
 dc: header	       
 	cd DC; $(MAKE) CLASS=$(CLASS)
