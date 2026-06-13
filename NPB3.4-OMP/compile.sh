@@ -3,7 +3,7 @@
 rm -rf bin/*.x.m5.pdev
 mkdir bin
 
-WORKLOADS=("IS" "CG")
+WORKLOADS=("IS" "CG" "UA")
 CLASSES=("S" "W" "A" "B" "C")
 
 for workload in "${WORKLOADS[@]}"
