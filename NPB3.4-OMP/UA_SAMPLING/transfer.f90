@@ -34,7 +34,7 @@
 
 
 !.....zero out tx on element boundaries
-      call col2(tx,tmult,ntot)     
+      call col2(tx,tmult,ntot)
 
 !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(il,j,ig,i,col,ije2,ije1,ig4,  &
 !$OMP& ig3,ig2,ig1,nnje,il4,il3,il2,il1,iface,ie,tmp)
@@ -53,18 +53,18 @@
           ig2= idmo(lx1,1  ,1,2,iface,ie)
           ig3= idmo(1,  lx1,2,1,iface,ie)
           ig4= idmo(lx1,lx1,2,2,iface,ie)
-  
+
 !.........copy the value from tmor to tx for these four local corners
           tx(il1) = tmor(ig1)
           tx(il2) = tmor(ig2)
           tx(il3) = tmor(ig3)
           tx(il4) = tmor(ig4)
- 
+
 !.........nnje=1 for conforming faces, nnje=2 for nonconforming faces
           if(cbc(iface,ie).eq.3) then
             nnje=2
           else
-            nnje=1 
+            nnje=1
           end if
 
 !.........for nonconforming faces
@@ -73,7 +73,7 @@
 !...........nonconforming faces have four pieces of mortar, first map them to
 !           two intermediate mortars, stored in tmp
             call r_init(tmp,lx1*lx1*2,0.d0)
-   
+
             do ije1=1,nnje
               do ije2=1,nnje
                 do col=1,lx1
@@ -98,16 +98,16 @@
                 end do
               end do
             end do
-      
-!...........mapping from two pieces of intermediate mortar tmp to element 
+
+!...........mapping from two pieces of intermediate mortar tmp to element
 !           face tx
 
             do ije1=1, nnje
 
 !.............the first column, col=1, is an edge of face iface.
-!             the value on the three interior collocation points, tx, is 
+!             the value on the three interior collocation points, tx, is
 !             computed by applying mapping matrices qbnew to tmp.
-!             the mapping result is divided by 2, because there will be 
+!             the mapping result is divided by 2, because there will be
 !             duplicated contribution from another face sharing this edge.
               col=1
               do i=2,lx1-1
@@ -115,10 +115,10 @@
                 do j=1,lx1
                     tx(il) = tx(il) + qbnew(i-1,j,ije1)*  &
      &                       tmp(col,j,ije1)*0.5d0
-                end do 
-              end do 
+                end do
+              end do
 
-!.............for column 2 ~ lx-1 
+!.............for column 2 ~ lx-1
               do col=2,lx1-1
 
 !...............when i=1 or lx1, the collocation points are also on an edge of
@@ -127,13 +127,13 @@
                 il= idel(col,i,iface,ie)
                 tx(il)=tx(il)+tmp(col,i,ije1)*0.5d0
 
-!...............compute the value at interior collocation points in 
+!...............compute the value at interior collocation points in
 !               columns 2 ~ lx1
                 do i=2,lx1-1
                   il= idel(col,i,iface,ie)
                   do j=1,lx1
                     tx(il) = tx(il) + qbnew(i-1,j,ije1)* tmp(col,j,ije1)
-                  end do 
+                  end do
                 end do
               end do
 
@@ -144,7 +144,7 @@
                 do j=1,lx1
                   tx(il) = tx(il) + qbnew(i-1,j,ije1)*  &
      &                     tmp(col,j,ije1)*0.5d0
-                end do 
+                end do
               end do
             end do
 
@@ -153,19 +153,19 @@
 
 !.........face interior
             do col=2,lx1-1
-              do i=2,lx1-1  
+              do i=2,lx1-1
                 il= idel(i,col,iface,ie)
                 ig= idmo(i,col,1,1,iface,ie)
                 tx(il)=tmor(ig)
               end do
             end do
 
-        
+
 !...........edges of conforming faces
 
 !...........if local edge 1 is a nonconforming edge
             if(idmo(lx1,1,1,1,iface,ie).ne.0)then
-              do i=2,lx1-1               
+              do i=2,lx1-1
                 il= idel(i,1,iface,ie)
                 do ije1=1,2
                   do j=1,lx1
@@ -182,11 +182,11 @@
                 ig= idmo(i,1,1,1,iface,ie)
                 tx(il)=tmor(ig)
               end do
-            end if 
+            end if
 
 !...........if local edge 2 is a nonconforming edge
             if(idmo(lx1,2,1,2,iface,ie).ne.0)then
-              do i=2,lx1-1               
+              do i=2,lx1-1
                 il= idel(lx1,i,iface,ie)
                 do ije1=1,2
                   do j=1,lx1
@@ -203,11 +203,11 @@
                 ig= idmo(lx1,i,1,1,iface,ie)
                 tx(il)=tmor(ig)
               end do
-            end if 
+            end if
 
 !...........if local edge 3 is a nonconforming edge
             if(idmo(2,lx1,2,1,iface,ie).ne.0)then
-              do  i=2,lx1-1               
+              do  i=2,lx1-1
                 il= idel(i,lx1,iface,ie)
                 do ije1=1,2
                   do j=1,lx1
@@ -224,11 +224,11 @@
                 ig= idmo(i,lx1,1,1,iface,ie)
                 tx(il)=tmor(ig)
               end do
-            end if 
+            end if
 
 !...........if local edge 4 is a nonconforming edge
             if(idmo(1,lx1,1,1,iface,ie).ne.0)then
-              do i=2,lx1-1               
+              do i=2,lx1-1
                 il= idel(1,i,iface,ie)
                 do ije1=1,2
                   do j=1,lx1
@@ -244,9 +244,9 @@
                 ig= idmo(1,i,1,1,iface,ie)
                 tx(il)=tmor(ig)
               end do
-            end if 
+            end if
           end if
-          
+
         end do
       end do
 !$OMP END PARALLEL DO
@@ -291,7 +291,7 @@
           if(cbc(iface,ie).eq.3) then
             nnje=2
           else
-            nnje=1 
+            nnje=1
           end if
 
 !.........get collocation point index of four local corners on the face
@@ -308,7 +308,7 @@
 
 !.........sum the values from tx to tmor for these four local corners
 !         only 1/3 of the value is summed, since there will be two duplicated
-!         contributions from the other two faces sharing this vertex 
+!         contributions from the other two faces sharing this vertex
 !
 !$        call omp_set_lock(tlock(ig1))
           tmor(ig1) = tmor(ig1)+tx(il1)*third
@@ -327,7 +327,7 @@
 !$        call omp_unset_lock(tlock(ig4))
 
 !.........for nonconforming faces
-          if(nnje.eq.2) then       
+          if(nnje.eq.2) then
             call r_init(temp,lx1*lx1*2,0.d0)
 
 !...........nonconforming faces have four pieces of mortar, first map tx to
@@ -336,27 +336,27 @@
             do ije2 = 1, nnje
               shift = ije2-1
               do col=1,lx1
-!...............For mortar points on face edge (top and bottom), copy the 
+!...............For mortar points on face edge (top and bottom), copy the
 !               value from tx to temp
                 il=idel(col,v_end(ije2),iface,ie)
                 temp(col,v_end(ije2),ije2)=tx(il)
 
-!...............For mortar points on face edge (top and bottom), calculate 
+!...............For mortar points on face edge (top and bottom), calculate
 !               the interior points' contribution to them, i.e. top()
                 j = v_end(ije2)
                 tmp=0.d0
-                do i=2,lx1-1 
+                do i=2,lx1-1
                   il=idel(col,i,iface,ie)
                   tmp = tmp + qbnew(i-1,j,ije2)*tx(il)
                 end do
 
                 top(col,ije2)=tmp
 
-!...............Use mapping matrices qbnew to map the value from tx to temp 
+!...............Use mapping matrices qbnew to map the value from tx to temp
 !               for mortar points not on the top bottom face edge.
                 do j=2-shift,lx1-shift
                   tmp=0.d0
-                  do i=2,lx1-1 
+                  do i=2,lx1-1
                     il=idel(col,i,iface,ie)
                     tmp = tmp + qbnew(i-1,j,ije2)*tx(il)
                   end do
@@ -374,8 +374,8 @@
 !...............for each column of collocation points on a piece of mortar
                 do col=2-shift,lx1-shift
 
-!.................For the end point, which is on an edge (local edge 2,4), 
-!                 the contribution is halved since there will be duplicated 
+!.................For the end point, which is on an edge (local edge 2,4),
+!                 the contribution is halved since there will be duplicated
 !                 contribution from another face sharing this edge.
 
                   ig=idmo(v_end(ije2),col,ije1,ije2,iface,ie)
@@ -384,8 +384,8 @@
                   tmor(ig)=tmor(ig)+temp(v_end(ije2),col,ije1)*0.5d0
 !$                call omp_unset_lock(tlock(ig))
 
-!.................In each row of collocation points on a piece of mortar, 
-!                 sum the contributions from interior collocation points 
+!.................In each row of collocation points on a piece of mortar,
+!                 sum the contributions from interior collocation points
 !                 (i=2,lx1-1)
 
                   do  j=1,lx1
@@ -403,8 +403,8 @@
 
 !...............For tmor on local edge 1 and 3, tmp is the contribution from
 !               an edge, so it is halved because of duplicated contribution
-!               from another face sharing this edge. tmp1 is contribution 
-!               from face interior. 
+!               from another face sharing this edge. tmp1 is contribution
+!               from face interior.
 
                 col = v_end(ije1)
                 ig=idmo(v_end(ije2),col,ije1,ije2,iface,ie)
@@ -422,7 +422,7 @@
                   ig=idmo(j,col,ije1,ije2,iface,ie)
 !
 !$                call omp_set_lock(tlock(ig))
-                  tmor(ig)=tmor(ig)+tmp*0.5d0+tmp1 
+                  tmor(ig)=tmor(ig)+tmp*0.5d0+tmp1
 !$                call omp_unset_lock(tlock(ig))
                 end do
               end do
@@ -472,7 +472,7 @@
                 tmor(ig)=tmor(ig)+tx(il)*0.5d0
 !$              call omp_unset_lock(tlock(ig))
               end do
-            end if 
+            end if
 
 !...........if local edge 2 is a nonconforming edge
             if(idmo(lx1,2,1,2,iface,ie).ne.0)then
@@ -501,7 +501,7 @@
                 tmor(ig)=tmor(ig)+tx(il)*0.5d0
 !$              call omp_unset_lock(tlock(ig))
               end do
-            end if 
+            end if
 
 !...........if local edge 3 is a nonconforming edge
             if(idmo(2,lx1,2,1,iface,ie).ne.0)then
@@ -530,7 +530,7 @@
                 tmor(ig)=tmor(ig)+tx(il)*0.5d0
 !$              call omp_unset_lock(tlock(ig))
               end do
-            end if 
+            end if
 
 !...........if local edge 4 is a nonconforming edge
             if(idmo(1,lx1,1,1,iface,ie).ne.0)then
@@ -559,12 +559,12 @@
                 tmor(ig)=tmor(ig)+tx(il)*0.5d0
 !$              call omp_unset_lock(tlock(ig))
               end do
-            end if 
+            end if
           end if
         end do
       end do
 !$OMP END DO NOWAIT
-!$OMP END PARALLEL 
+!$OMP END PARALLEL
 
       return
       end
@@ -576,10 +576,10 @@
 !     This subroutine performs the edge to mortar mapping and
 !     calculates the mapping result on the mortar point at a vertex
 !     under situation 1,2, or 3.
-!     n refers to the configuration of three edges sharing a vertex, 
+!     n refers to the configuration of three edges sharing a vertex,
 !     n = 1: only one edge is nonconforming
-!     n = 2: two edges are nonconforming 
-!     n = 3: three edges are nonconforming 
+!     n = 2: two edges are nonconforming
+!     n = 3: three edges are nonconforming
 !-------------------------------------------------------------------
 
       use ua_data
@@ -615,10 +615,10 @@
 !     This subroutine performs the mapping from face to mortar.
 !     Output tmor is the mapping result on a mortar vertex
 !     of situations of three edges and three faces sharing a vertex:
-!     n=4: only one face is nonconforming 
+!     n=4: only one face is nonconforming
 !     n=5: one face and one edge are nonconforming
-!     n=6: two faces are nonconforming 
-!     n=7: three faces are nonconforming 
+!     n=6: two faces are nonconforming
+!     n=7: three faces are nonconforming
 !--------------------------------------------------------------
 
       use ua_data
@@ -646,7 +646,7 @@
           tmor = tmor + qbnew(i-1,1,1) *tx(1,1,i)
         end do
       end if
- 
+
       if(n.ge.6)then
         call r_init(temp,lx1,0.d0)
         do col=1,lx1
@@ -659,7 +659,7 @@
           tmor = tmor +qbnew(i-1,1,1) *temp(i)
         end do
       end if
-        
+
       if(n.eq.7)then
         call r_init(temp,lx1,0.d0)
         do col=2,lx1-1
@@ -679,10 +679,10 @@
 !-------------------------------------------------------------------------
       subroutine transf_nc(tmor,tx)
 !------------------------------------------------------------------------
-!     Perform mortar to element mapping on a nonconforming face. 
+!     Perform mortar to element mapping on a nonconforming face.
 !     This subroutin is used when all entries in tmor are zero except
-!     one tmor(i,j)=1. So this routine is simplified. Only one piece of 
-!     mortar  (tmor only has two indices) and one piece of intermediate 
+!     one tmor(i,j)=1. So this routine is simplified. Only one piece of
+!     mortar  (tmor only has two indices) and one piece of intermediate
 !     mortar (tmp) are involved.
 !------------------------------------------------------------------------
 
@@ -695,7 +695,7 @@
       call r_init(tmp,lx1*lx1,0.d0)
       do col=1,lx1
         i = 1
-        tmp(i,col)=tmor(i,col)                           
+        tmp(i,col)=tmor(i,col)
         do i=2,lx1-1
           do j=1,lx1
             tmp(i,col) = tmp(i,col) + qbnew(i-1,j,1)*tmor(j,col)
@@ -713,13 +713,13 @@
         end do
       end do
 
-      return                                                  
-      end                                                     
+      return
+      end
 
 !------------------------------------------------------------------------
       subroutine transfb_nc0(tmor,tx)
 !------------------------------------------------------------------------
-!     Performs mapping from element to mortar when the nonconforming 
+!     Performs mapping from element to mortar when the nonconforming
 !     edges are shared by two conforming faces of an element.
 !------------------------------------------------------------------------
 
@@ -737,7 +737,7 @@
       end do
 
       return
-      end 
+      end
 
 !------------------------------------------------------------------------
       subroutine transfb_nc2(tmor,tx)
@@ -765,12 +765,12 @@
         temp(col,1)=tx(col,1)
         j=1
         bottom(col)= 0.d0
-        do i=2,lx1-1 
+        do i=2,lx1-1
           bottom(col) = bottom(col) + qbnew(i-1,j,1)*tx(col,i)
         end do
 
         do j=2,lx1
-          do i=2,lx1-1 
+          do i=2,lx1-1
             temp(col,j) = temp(col,j) + qbnew(i-1,j,1)*tx(col,i)
           end do
         end do
@@ -784,7 +784,7 @@
       do j=1,lx1
         do i=2,lx1-1
           tmor(j,col)=tmor(j,col)+ qbnew(i-1,j,1) * bottom(i) +  &
-     &                             qbnew(i-1,j,1) * temp(i,col) * 0.5d0 
+     &                             qbnew(i-1,j,1) * temp(i,col) * 0.5d0
         end do
       end do
 
@@ -798,7 +798,7 @@
       end do
 
       return
-      end 
+      end
 
 
 !------------------------------------------------------------------------
@@ -827,12 +827,12 @@
         temp(col,1)=tx(col,1)
         j = 1
         bottom(col)= 0.d0
-        do i=2,lx1-1 
+        do i=2,lx1-1
           bottom(col)=bottom(col) + qbnew(i-1,j,1)*tx(col,i)
         end do
 
         do j=2,lx1
-          do i=2,lx1-1 
+          do i=2,lx1-1
             temp(col,j) = temp(col,j) + qbnew(i-1,j,1)*tx(col,i)
           end do
 
@@ -848,7 +848,7 @@
 !         from the other conforming face.
 
           tmor(j,col)=tmor(j,col) + qbnew(i-1,j,1) *bottom(i) +  &
-     &                              qbnew(i-1,j,1) *temp(i,col) 
+     &                              qbnew(i-1,j,1) *temp(i,col)
         end do
       end do
 
@@ -868,7 +868,7 @@
 !-------------------------------------------------------------------
       subroutine transfb_c(tx)
 !-------------------------------------------------------------------
-!     Prepare initial guess for cg. All values from conforming 
+!     Prepare initial guess for cg. All values from conforming
 !     boundary are copied and summed on tmor.
 !-------------------------------------------------------------------
 
@@ -881,7 +881,7 @@
       integer il1,il2,il3,il4,ig1,ig2,ig3,ig4,ie,iface,col,j,ig,il
 
 !$OMP PARALLEL DEFAULT(SHARED) PRIVATE(IE,IFACE,IL1,IL2,  &
-!$OMP& IL3,IL4,IG1,IG2,IG3,IG4,COL,J,IG,IL) 
+!$OMP& IL3,IL4,IG1,IG2,IG3,IG4,COL,J,IG,IL)
 
 !$OMP DO
       do j=1,nmor
@@ -983,8 +983,8 @@
 !-------------------------------------------------------------------
       subroutine transfb_c_2(tx)
 !-------------------------------------------------------------------
-!     Prepare initial guess for CG. All values from conforming 
-!     boundary are copied and summed in tmort. 
+!     Prepare initial guess for CG. All values from conforming
+!     boundary are copied and summed in tmort.
 !     mormult is multiplicity, which is used to average tmort.
 !-------------------------------------------------------------------
 
@@ -999,7 +999,7 @@
 !$OMP PARALLEL DEFAULT(SHARED) PRIVATE(IE,IFACE,IL1,IL2,  &
 !$OMP& IL3,IL4,IG1,IG2,IG3,IG4,COL,J,IG,IL)
 
-!$OMP DO     
+!$OMP DO
       do j=1,nmor
         tmort(j)=0.d0
       end do
@@ -1010,10 +1010,10 @@
       end do
 !$OMP END DO
 
-!$OMP DO 
+!$OMP DO
       do ie=1,nelt
         do iface=1,nsides
-          
+
           if(cbc(iface,ie).ne.3)then
             il1 = idel(1,  1,  iface,ie)
             il2 = idel(lx1,1,  iface,ie)
