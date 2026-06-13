@@ -25,6 +25,14 @@
       integer, intent(in) :: transfer_starting_element
       integer, intent(in) :: transfer_num_warmup_elements
 
+#if ENABLE_PICKLEDEVICE==1
+      integer(c_int)     :: pkl_kid
+      integer(c_int64_t) :: pkl_idel_n, pkl_idel_esz
+      integer(c_int64_t) :: pkl_idmo_n, pkl_idmo_esz
+      integer(c_int64_t) :: pkl_pdiff_n, pkl_pdiff_esz
+      integer(c_int64_t) :: pkl_pmor_n,  pkl_pmor_esz
+#endif
+
       if (timeron) call timer_start(t_diffusion)
 !.....set up diagonal preconditioner
       if (ifmortar) then
