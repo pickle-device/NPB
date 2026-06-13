@@ -53,6 +53,36 @@
       double precision t2, trecs(t_last)
       character t_names(t_last)*10
 
+
+      integer :: sampling_site ! 1 for transf within cgsolver, 2 for transfb within cgsolver
+      integer :: ua_starting_iter ! number of UA iterations to skip before sampling
+      integer :: cg_starting_iter ! number of CG iterations to skip before sampling
+      integer :: starting_iter ! number of elements at transf/transfb before sampling
+      integer :: warmup_iters ! number of elements at transf/transfb to warm up the caches
+      character(len=256) :: arg_val
+
+      sampling_site = 1
+      ua_starting_iter = 1
+      cg_starting_iter = 1
+      starting_iter = 1
+      warmup_iters = 1
+      if (command_argument_count() >= 5) then
+         call get_command_argument(1, arg_val)
+         read(arg_val, *) sampling_site
+         call get_command_argument(2, arg_val)
+         read(arg_val, *) ua_starting_iter
+         call get_command_argument(3, arg_val)
+         read(arg_val, *) cg_starting_iter
+         call get_command_argument(4, arg_val)
+         read(arg_val, *) starting_iter
+         call get_command_argument(5, arg_val)
+         read(arg_val, *) warmup_iters
+      end if
+      write(*,*) 'sampling_site = ', sampling_site
+      write(*,*) 'ua_starting_iter = ', ua_starting_iter
+      write(*,*) 'cg_starting_iter = ', cg_starting_iter
+      write(*,*) 'starting_iter = ', starting_iter
+      write(*,*) 'warmup_iters  = ', warmup_iters
 !---------------------------------------------------------------------
 !     Read input file (if it exists), else take
 !     defaults from parameters
