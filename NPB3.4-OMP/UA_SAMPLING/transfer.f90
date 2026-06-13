@@ -504,6 +504,10 @@
 !------------------------------------------------------------------
 
       use ua_data
+#if ENABLE_PICKLEDEVICE==1
+      use iso_c_binding
+      use pickle_ua_mod
+#endif
       implicit none
 
       integer, intent(in) :: starting_element
@@ -1096,13 +1100,13 @@
 !$OMP& ig3,ig2,ig1,nnje,il4,il3,il2,il1,iface,ie,ije,  &
 !$OMP& tmp,shift,temp,top,tmp1, starting_element, ending_element)
 
+      if (starting_element .eq. 1) then
 !$OMP DO
-      if (starting_element == 1) then
         do ie=1,nmor
           tmor(ie)=0.d0
         end do
-      end if
 !$OMP END DO
+      end if
 
 !$OMP DO
       do ie=starting_element,ending_element
@@ -1406,7 +1410,7 @@
 #endif
       implicit none
 
-      integer intent(in) :: starting_element, ending_element
+      integer, intent(in) :: starting_element, ending_element
 
       double precision third
       parameter (third=1.d0/3.d0)
