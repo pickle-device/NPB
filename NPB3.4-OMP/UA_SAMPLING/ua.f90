@@ -244,7 +244,7 @@
         call col2(rmor,tmmor,nmor)
 
 !.......call the conjugate gradient iterative solver
-        call diffusion(ifmortar,step,ua_starting_step,cg_starting_iter,starting_iter,warmup_iters)
+        call diffusion(ifmortar,sampling_site,step,ua_starting_step,cg_starting_iter,starting_iter,warmup_iters)
 
 !.......add convection and diffusion
         if (timeron) call timer_start(t_add2)

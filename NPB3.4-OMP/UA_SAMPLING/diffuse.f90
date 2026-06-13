@@ -1,16 +1,22 @@
 !---------------------------------------------------------------------
-      subroutine diffusion(ifmortar,current_ua_step,ua_starting_step,cg_starting_iter,transfer_starting_element,transfer_num_warmup_elements)
+      subroutine diffusion(ifmortar,sampling_site,current_ua_step,ua_starting_step,cg_starting_iter,transfer_starting_element,transfer_num_warmup_elements)
 !---------------------------------------------------------------------
 !     advance the diffusion term using CG iterations
 !---------------------------------------------------------------------
 
       use ua_data
+      use iso_c_binding
+
+#if ENABLE_PICKLEDEVICE==1
+      use pickle_ua_mod
+#endif
       implicit none
 
       double precision  rho_aux, rho1, rho2, beta, cona
       logical ifmortar
       integer iter,ie, im,iside,i,j,k
 
+      integer, intent(in) :: sampling_site
       integer, intent(in) :: current_ua_step
       integer, intent(in) :: ua_starting_step
       integer, intent(in) :: cg_starting_iter
@@ -107,7 +113,93 @@
 !.......compute matrix vector product: (theta pm) in the specification
 
         if (timeron) call timer_start(t_transf)
-        call transf(pmorx,pdiff)
+        !call transf(pmorx,pdiff)
+        if (sampling_site .eq. 1 .and. current_ua_step .eq. ua_starting_step .and. iter .eq. cg_starting_iter) then
+           call transf_some_elements(pmorx,pdiff,1,transfer_starting_element-1)
+           !------------- Exit 1: switch CPUs -------------
+#if ENABLE_GEM5==1
+            !$omp barrier
+            !$omp master
+                write(*,*) 'sampling site 1, ua_step = ', current_ua_step, 'cg_iter = ', iter, ' warmup: [', transfer_starting_element, '...', transfer_starting_element+transfer_num_warmup_elements-1, ']'
+                call map_m5_mem()
+                call m5_exit()
+            !$omp end master
+            !$omp barrier
+#endif
+           ! warmup the cache
+           call transf_some_elements(pmorx,pdiff,transfer_starting_element,transfer_starting_element+transfer_num_warmup_elements-1)
+           !------------- Exit 2: done warmup cache, now setup Pickle device -------------
+#if ENABLE_PICKLEDEVICE==1
+           !$omp barrier
+           !$omp master
+            call pickle_ua_device_init()
+
+            if (pkl_use_pdev .eq. 1) then
+
+              pkl_idel_n    = int(size(idel),  c_int64_t)
+              pkl_idel_esz  = int(storage_size(idel(1,1,1,1))/8,        &
+      &                            c_int64_t)
+              pkl_idmo_n    = int(size(idmo),  c_int64_t)
+              pkl_idmo_esz  = int(storage_size(idmo(1,1,1,1,1,1))/8,    &
+      &                            c_int64_t)
+              pkl_pdiff_n   = int(size(pdiff), c_int64_t)
+              pkl_pdiff_esz = int(storage_size(pdiff(1,1,1,1))/8,       &
+      &                            c_int64_t)
+              pkl_pmor_n    = int(size(pmorx), c_int64_t)
+              pkl_pmor_esz  = int(storage_size(pmorx(1))/8, c_int64_t)
+
+              ! Kernel 1: idel → pdiff   (transf  scatter target)
+              pkl_kid = 1
+              call pickle_ua_setup_idel_kernel_c(pkl_kid,               &
+      &            c_loc(idel(1,1,1,1)),  pkl_idel_n,  pkl_idel_esz,  &
+      &            c_loc(pdiff(1,1,1,1)), pkl_pdiff_n, pkl_pdiff_esz)
+
+              ! Kernel 2: idmo → pmorx   (transf  gather  source)
+              pkl_kid = 2
+              call pickle_ua_setup_idmo_kernel_c(pkl_kid,               &
+      &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,&
+      &            c_loc(pmorx(1)),          pkl_pmor_n, pkl_pmor_esz)
+
+              ! Kernel 3: idel → pdiffp  (transfb gather  source)
+              pkl_kid = 3
+              call pickle_ua_setup_idel_kernel_c(pkl_kid,               &
+      &            c_loc(idel(1,1,1,1)),   pkl_idel_n,  pkl_idel_esz, &
+      &            c_loc(pdiffp(1,1,1,1)), pkl_pdiff_n, pkl_pdiff_esz)
+
+              ! Kernel 4: idmo → ppmor   (transfb scatter target)
+              pkl_kid = 4
+              call pickle_ua_setup_idmo_kernel_c(pkl_kid,               &
+      &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,&
+      &            c_loc(ppmor(1)),          pkl_pmor_n, pkl_pmor_esz)
+
+              ! Obtain UCPage communication area
+              call pickle_ua_setup_ucpages_c()
+              call pickle_ua_setup_ucpage_ptrs()
+          endif
+            !$omp end master
+            !$omp barrier
+#endif
+           !------------- Exit 3: done setting up Pickle device; now start sampling -------------
+           if (pkl_use_pdev .eq. 1) then
+              call transf_some_elements_with_pdev(pmorx,pdiff,transfer_starting_element+transfer_num_warmup_elements,nelt)
+           else
+              call transf_some_elements(pmorx,pdiff,transfer_starting_element+transfer_num_warmup_elements,nelt)
+           end if
+
+        else
+           call transf(pmorx,pdiff)
+        end if
+        !------------- Exit 4: simulation should have exited at this point; but if not, exit now -------------
+#if ENABLE_GEM5==1
+            !$omp barrier
+            !$omp master
+            if (sampling_site .eq. 1 .and. current_ua_step .eq. ua_starting_step .and. iter .eq. cg_starting_iter) then
+              write(*,*) 'Exiting simulation as it should have exited at this point; but if not, exit now'
+              call m5_exit()
+            end if
+            !$omp end master
+            !$omp barrier
+#endif
         if (timeron) call timer_stop(t_transf)
 
 !.......compute pdiffp which is (A theta pm) in the specification
@@ -120,7 +212,92 @@
 !.......compute ppmor which will be used to compute (thetaT A theta pm)
 !       in the specification
         if (timeron) call timer_start(t_transfb)
-        call transfb(ppmor,pdiffp)
+        if (sampling_site .eq. 2 .and. current_ua_step .eq. ua_starting_step .and. iter .eq. cg_starting_iter) then
+           call transfb_some_elements(ppmor,pdiffp,1,transfer_starting_element-1)
+           !------------- Exit 1: switch CPUs -------------
+#if ENABLE_GEM5==1
+            !$omp barrier
+            !$omp master
+                write(*,*) 'sampling site 2, ua_step = ', current_ua_step, 'cg_iter = ', iter, ' warmup: [', transfer_starting_element, '...', transfer_starting_element+transfer_num_warmup_elements-1, ']'
+                call map_m5_mem()
+                call m5_exit()
+            !$omp end master
+            !$omp barrier
+#endif
+           ! warmup the cache
+           call transfb_some_elements(ppmor,pdiffp,transfer_starting_element,transfer_starting_element+transfer_num_warmup_elements-1)
+           !------------- Exit 2: done warmup cache, now setup Pickle device -------------
+#if ENABLE_PICKLEDEVICE==1
+           !$omp barrier
+           !$omp master
+            call pickle_ua_device_init()
+
+            if (pkl_use_pdev .eq. 1) then
+
+              pkl_idel_n    = int(size(idel),  c_int64_t)
+              pkl_idel_esz  = int(storage_size(idel(1,1,1,1))/8,        &
+      &                            c_int64_t)
+              pkl_idmo_n    = int(size(idmo),  c_int64_t)
+              pkl_idmo_esz  = int(storage_size(idmo(1,1,1,1,1,1))/8,    &
+      &                            c_int64_t)
+              pkl_pdiff_n   = int(size(pdiff), c_int64_t)
+              pkl_pdiff_esz = int(storage_size(pdiff(1,1,1,1))/8,       &
+      &                            c_int64_t)
+              pkl_pmor_n    = int(size(pmorx), c_int64_t)
+              pkl_pmor_esz  = int(storage_size(pmorx(1))/8, c_int64_t)
+
+              ! Kernel 1: idel → pdiff   (transf  scatter target)
+              pkl_kid = 1
+              call pickle_ua_setup_idel_kernel_c(pkl_kid,               &
+      &            c_loc(idel(1,1,1,1)),  pkl_idel_n,  pkl_idel_esz,  &
+      &            c_loc(pdiff(1,1,1,1)), pkl_pdiff_n, pkl_pdiff_esz)
+
+              ! Kernel 2: idmo → pmorx   (transf  gather  source)
+              pkl_kid = 2
+              call pickle_ua_setup_idmo_kernel_c(pkl_kid,               &
+      &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,&
+      &            c_loc(pmorx(1)),          pkl_pmor_n, pkl_pmor_esz)
+
+              ! Kernel 3: idel → pdiffp  (transfb gather  source)
+              pkl_kid = 3
+              call pickle_ua_setup_idel_kernel_c(pkl_kid,               &
+      &            c_loc(idel(1,1,1,1)),   pkl_idel_n,  pkl_idel_esz, &
+      &            c_loc(pdiffp(1,1,1,1)), pkl_pdiff_n, pkl_pdiff_esz)
+
+              ! Kernel 4: idmo → ppmor   (transfb scatter target)
+              pkl_kid = 4
+              call pickle_ua_setup_idmo_kernel_c(pkl_kid,               &
+      &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,&
+      &            c_loc(ppmor(1)),          pkl_pmor_n, pkl_pmor_esz)
+
+              ! Obtain UCPage communication area
+              call pickle_ua_setup_ucpages_c()
+              call pickle_ua_setup_ucpage_ptrs()
+          endif
+            !$omp end master
+            !$omp barrier
+#endif
+           !------------- Exit 3: done setting up Pickle device; now start sampling -------------
+           if (pkl_use_pdev .eq. 1) then
+              call transfb_some_elements_with_pdev(ppmor,pdiffp,transfer_starting_element+transfer_num_warmup_elements,nelt)
+           else
+              call transfb_some_elements(ppmor,pdiffp,transfer_starting_element+transfer_num_warmup_elements,nelt)
+           end if
+
+        else
+           call transfb(ppmor,pdiffp)
+        end if
+        !------------- Exit 4: simulation should have exited at this point; but if not, exit now -------------
+#if ENABLE_GEM5==1
+            !$omp barrier
+            !$omp master
+            if (sampling_site .eq. 2 .and. current_ua_step .eq. ua_starting_step .and. iter .eq. cg_starting_iter) then
+              write(*,*) 'Exiting simulation as it should have exited at this point; but if not, exit now'
+              call m5_exit()
+            end if
+            !$omp end master
+            !$omp barrier
+#endif
         if (timeron) call timer_stop(t_transfb)
 
 !.......apply boundary condition

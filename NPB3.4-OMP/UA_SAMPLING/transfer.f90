@@ -1081,7 +1081,7 @@
       use ua_data
       implicit none
 
-      integer intent(in) :: starting_element, ending_element
+      integer, intent(in) :: starting_element, ending_element
 
       double precision third
       parameter (third=1.d0/3.d0)
