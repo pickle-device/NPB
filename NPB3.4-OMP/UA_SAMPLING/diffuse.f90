@@ -1,5 +1,5 @@
 !---------------------------------------------------------------------
-      subroutine diffusion(ifmortar)
+      subroutine diffusion(ifmortar,current_ua_step,ua_starting_step,cg_starting_iter,transfer_starting_element,transfer_num_warmup_elements)
 !---------------------------------------------------------------------
 !     advance the diffusion term using CG iterations
 !---------------------------------------------------------------------
@@ -10,6 +10,12 @@
       double precision  rho_aux, rho1, rho2, beta, cona
       logical ifmortar
       integer iter,ie, im,iside,i,j,k
+
+      integer, intent(in) :: current_ua_step
+      integer, intent(in) :: ua_starting_step
+      integer, intent(in) :: cg_starting_iter
+      integer, intent(in) :: transfer_starting_element
+      integer, intent(in) :: transfer_num_warmup_elements
 
       if (timeron) call timer_start(t_diffusion)
 !.....set up diagonal preconditioner
