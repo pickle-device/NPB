@@ -195,11 +195,15 @@
             !$omp barrier
 #endif
            !------------- Exit 3: done setting up Pickle device; now start sampling -------------
+#if ENABLE_PICKLEDEVICE==1
            if (pkl_use_pdev .eq. 1) then
               call transf_some_elements_with_pdev(pmorx,pdiff,transfer_starting_element+transfer_num_warmup_elements,nelt)
            else
               call transf_some_elements(pmorx,pdiff,transfer_starting_element+transfer_num_warmup_elements,nelt)
            end if
+#else
+           call transf_some_elements(pmorx,pdiff,transfer_starting_element+transfer_num_warmup_elements,nelt)
+#endif
 
         else
            call transf(pmorx,pdiff)
@@ -301,11 +305,15 @@
             !$omp barrier
 #endif
            !------------- Exit 3: done setting up Pickle device; now start sampling -------------
+#if ENABLE_PICKLEDEVICE==1
            if (pkl_use_pdev .eq. 1) then
               call transfb_some_elements_with_pdev(ppmor,pdiffp,transfer_starting_element+transfer_num_warmup_elements,nelt)
            else
               call transfb_some_elements(ppmor,pdiffp,transfer_starting_element+transfer_num_warmup_elements,nelt)
            end if
+#else
+           call transfb_some_elements(ppmor,pdiffp,transfer_starting_element+transfer_num_warmup_elements,nelt)
+#endif
 
         else
            call transfb(ppmor,pdiffp)
