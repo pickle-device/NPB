@@ -1,5 +1,7 @@
 !---------------------------------------------------------------------
-      subroutine diffusion(ifmortar,sampling_site,current_ua_step,ua_starting_step,cg_starting_iter,transfer_starting_element,transfer_num_warmup_elements)
+      subroutine diffusion(ifmortar,sampling_site,          &
+     &  current_ua_step,ua_starting_step,cg_starting_iter,    &
+     &  transfer_starting_element,transfer_num_warmup_elements)
 !---------------------------------------------------------------------
 !     advance the diffusion term using CG iterations
 !---------------------------------------------------------------------
@@ -120,7 +122,12 @@
 #if ENABLE_GEM5==1
             !$omp barrier
             !$omp master
-                write(*,*) 'sampling site 1, ua_step = ', current_ua_step, 'cg_iter = ', iter, ' warmup: [', transfer_starting_element, '...', transfer_starting_element+transfer_num_warmup_elements-1, ']'
+                write(*,*) 'sampling site 1, ua_step = ',     &
+     &            current_ua_step, 'cg_iter = ', iter,        &
+     &            ' warmup: [', transfer_starting_element,    &
+     &            '...',                                      &
+     &            transfer_starting_element                   &
+     &              +transfer_num_warmup_elements-1, ']'
                 call map_m5_mem()
                 call m5_exit()
             !$omp end master
@@ -218,14 +225,22 @@
 #if ENABLE_GEM5==1
             !$omp barrier
             !$omp master
-                write(*,*) 'sampling site 2, ua_step = ', current_ua_step, 'cg_iter = ', iter, ' warmup: [', transfer_starting_element, '...', transfer_starting_element+transfer_num_warmup_elements-1, ']'
+                write(*,*) 'sampling site 2, ua_step = ',     &
+     &            current_ua_step, 'cg_iter = ', iter,        &
+     &            ' warmup: [', transfer_starting_element,    &
+     &            '...',                                      &
+     &            transfer_starting_element                   &
+     &              +transfer_num_warmup_elements-1, ']'
                 call map_m5_mem()
                 call m5_exit()
             !$omp end master
             !$omp barrier
 #endif
            ! warmup the cache
-           call transfb_some_elements(ppmor,pdiffp,transfer_starting_element,transfer_starting_element+transfer_num_warmup_elements-1)
+           call transfb_some_elements(ppmor,pdiffp,           &
+     &       transfer_starting_element,                       &
+     &       transfer_starting_element                        &
+     &         +transfer_num_warmup_elements-1)
            !------------- Exit 2: done warmup cache, now setup Pickle device -------------
 #if ENABLE_PICKLEDEVICE==1
            !$omp barrier
