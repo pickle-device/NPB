@@ -30190,7 +30190,7 @@ Disassembly of section .text:
   420d74:	f0000160 	adrp	x0, 44f000 <__FRAME_END__+0x1cd3c>
   420d78:	f946d000 	ldr	x0, [x0, #3488]
   420d7c:	f9009be0 	str	x0, [sp, #304]
-  420d80:	f0000060 	adrp	x0, 42f000 <options.30.0+0x868>
+  420d80:	f0000060 	adrp	x0, 42f000 <options.30.0+0x868>                       ########## SAMPLING POINT 1 WITHOUT PICKLE: start of outer loop
   420d84:	910a2000 	add	x0, x0, #0x288
   420d88:	f9008be0 	str	x0, [sp, #272]
   420d8c:	91002000 	add	x0, x0, #0x8
@@ -30454,7 +30454,7 @@ Disassembly of section .text:
   421194:	91000694 	add	x20, x20, #0x1
   421198:	f1001e9f 	cmp	x20, #0x7
   42119c:	54002a80 	b.eq	4216ec <transf_some_elements_._omp_fn.0+0xa98>  // b.none
-  4211a0:	a94a87e0 	ldp	x0, x1, [sp, #168]
+  4211a0:	a94a87e0 	ldp	x0, x1, [sp, #168]                                     ########## SAMPLING POINT 1 WITHOUT PICKLE: start of inner loop
   4211a4:	f9405fe3 	ldr	x3, [sp, #184]
   4211a8:	f9406fe2 	ldr	x2, [sp, #216]
   4211ac:	8b010001 	add	x1, x0, x1
@@ -30791,18 +30791,18 @@ Disassembly of section .text:
   4216d8:	1e630842 	fmul	d2, d2, d3
   4216dc:	1f410040 	fmadd	d0, d2, d1, d0
   4216e0:	fc1f8020 	stur	d0, [x1, #-8]
-  4216e4:	f1001e9f 	cmp	x20, #0x7
-  4216e8:	54ffd5c1 	b.ne	4211a0 <transf_some_elements_._omp_fn.0+0x54c>  // b.any
-  4216ec:	f9403be0 	ldr	x0, [sp, #112]
+  4216e4:	f1001e9f 	cmp	x20, #0x7                                              ########## SAMPLING POINT 1 WITHOUT PICKLE: (inner loop) comparing "iface" to 7 (iface must be <= 6)
+  4216e8:	54ffd5c1 	b.ne	4211a0 <transf_some_elements_._omp_fn.0+0x54c>  // b.any ########## SAMPLING POINT 1 WITHOUT PICKLE: inner loop boundary check
+  4216ec:	f9403be0 	ldr	x0, [sp, #112]                                         ########## SAMPLING POINT 1 WITHOUT PICKLE: (outer loop) load "ie" to from the stack
   4216f0:	aa0c03e4 	mov	x4, x12
-  4216f4:	b94127f4 	ldr	w20, [sp, #292]
+  4216f4:	b94127f4 	ldr	w20, [sp, #292]                                        ########## SAMPLING POINT 1 WITHOUT PICKLE: (outer loop) load number of elements from the stack
   4216f8:	aa0603e5 	mov	x5, x6
-  4216fc:	91000400 	add	x0, x0, #0x1
-  421700:	f9003be0 	str	x0, [sp, #112]
+  4216fc:	91000400 	add	x0, x0, #0x1                                           ########## SAMPLING POINT 1 WITHOUT PICKLE: (outer loop) increase "ie" <- WE USE THIS PC TO TRACK HOW MANY ELEMENTS HAVE BEEN PROCESSED
+  421700:	f9003be0 	str	x0, [sp, #112]                                         ########## SAMPLING POINT 1 WITHOUT PICKLE: (outer loop) store "ie" to the stack
   421704:	11000000 	add	w0, w0, #0x0
   421708:	aa0b03e7 	mov	x7, x11
-  42170c:	6b00029f 	cmp	w20, w0
-  421710:	54ffb38c 	b.gt	420d80 <transf_some_elements_._omp_fn.0+0x12c>
+  42170c:	6b00029f 	cmp	w20, w0                                                ########## SAMPLING POINT 1 WITHOUT PICKLE: (outer loop) bound check "ie" with number of elements
+  421710:	54ffb38c 	b.gt	420d80 <transf_some_elements_._omp_fn.0+0x12c>        ########## SAMPLING POINT 1 WITHOUT PICKLE: outer loop boundary check
   421714:	a94363f7 	ldp	x23, x24, [sp, #48]
   421718:	a9446bf9 	ldp	x25, x26, [sp, #64]
   42171c:	a94573fb 	ldp	x27, x28, [sp, #80]
@@ -31686,7 +31686,7 @@ Disassembly of section .text:
   4224cc:	1b138441 	msub	w1, w2, w19, w1
   4224d0:	6b01001f 	cmp	w0, w1
   4224d4:	5400be6b 	b.lt	423ca0 <transf_some_elements_with_pdev_._omp_fn.0+0x1810>  // b.tstop
-  4224d8:	1b000440 	madd	w0, w2, w0, w1
+  4224d8:	1b000440 	madd	w0, w2, w0, w1                                        ########## SAMPLING POINT 1 WITH PICKLE: outer loop starts
   4224dc:	0b000042 	add	w2, w2, w0
   4224e0:	6b02001f 	cmp	w0, w2
   4224e4:	5400536a 	b.ge	422f50 <transf_some_elements_with_pdev_._omp_fn.0+0xac0>  // b.tcont
@@ -31722,21 +31722,21 @@ Disassembly of section .text:
   42255c:	b0000160 	adrp	x0, 44f000 <__FRAME_END__+0x1cd3c>
   422560:	f946d000 	ldr	x0, [x0, #3488]
   422564:	f9009fe0 	str	x0, [sp, #312]
-  422568:	b0000060 	adrp	x0, 42f000 <options.30.0+0x868>
+  422568:	b0000060 	adrp	x0, 42f000 <options.30.0+0x868>                       ########## SAMPLING POINT 1 WITH PICKLE: start of outer loop
   42256c:	910a2000 	add	x0, x0, #0x288
   422570:	f94002a1 	ldr	x1, [x21]
   422574:	f9008be0 	str	x0, [sp, #272]
   422578:	91002000 	add	x0, x0, #0x8
   42257c:	f9008fe0 	str	x0, [sp, #280]
   422580:	f94002c0 	ldr	x0, [x22]
-  422584:	d2800025 	mov	x5, #0x1                   	// #1
+  422584:	d2800025 	mov	x5, #0x1                   	// #1                      ########## SAMPLING POINT 1 WITH PICKLE: (outer loop) x5 is set to 1
   422588:	a95013e2 	ldp	x2, x4, [sp, #256]
   42258c:	aa0703eb 	mov	x11, x7
-  422590:	f9403be3 	ldr	x3, [sp, #112]
-  422594:	f9000023 	str	x3, [x1]
-  422598:	f9000003 	str	x3, [x0]
+  422590:	f9403be3 	ldr	x3, [sp, #112]                                         ########## SAMPLING POINT 1 WITH PICKLE: (outer loop) loading the ie from the stack (the giant code below uses all logical regs ...)
+  422594:	f9000023 	str	x3, [x1]                                               ########## SAMPLING POINT 1 WITH PICKLE: (outer loop) pkl_ucpage_kern1 = ie
+  422598:	f9000003 	str	x3, [x0]                                               ########## SAMPLING POINT 1 WITH PICKLE: (outer loop) pkl_ucpage_kern2 = ie
   42259c:	b90127f4 	str	w20, [sp, #292]
-  4225a0:	aa0503f4 	mov	x20, x5
+  4225a0:	aa0503f4 	mov	x20, x5                                                ########## SAMPLING POINT 1 WITH PICKLE: (inner loop) setting iface (x20)
   4225a4:	f9403881 	ldr	x1, [x4, #112]
   4225a8:	a912dbf5 	stp	x21, x22, [sp, #296]
   4225ac:	f9402053 	ldr	x19, [x2, #64]
@@ -32342,17 +32342,17 @@ Disassembly of section .text:
   422f0c:	1e630842 	fmul	d2, d2, d3
   422f10:	1f410040 	fmadd	d0, d2, d1, d0
   422f14:	fc1f8020 	stur	d0, [x1, #-8]
-  422f18:	f1001e9f 	cmp	x20, #0x7
-  422f1c:	54ffd5a1 	b.ne	4229d0 <transf_some_elements_with_pdev_._omp_fn.0+0x540>  // b.any
-  422f20:	f9403be0 	ldr	x0, [sp, #112]
+  422f18:	f1001e9f 	cmp	x20, #0x7                                              ########## SAMPLING POINT 1 WITH PICKLE: (inner loop) comparing "iface" to 7 (iface must be <= 6)
+  422f1c:	54ffd5a1 	b.ne	4229d0 <transf_some_elements_with_pdev_._omp_fn.0+0x540>  // b.any ########## SAMPLING POINT 1 WITH PICKLE: inner loop bound check
+  422f20:	f9403be0 	ldr	x0, [sp, #112]                                         ########## SAMPLING POINT 1 WITH PICKLE: (outer loop) loading "ie" from stack
   422f24:	aa0b03e7 	mov	x7, x11
-  422f28:	b94127f4 	ldr	w20, [sp, #292]
-  422f2c:	91000400 	add	x0, x0, #0x1
-  422f30:	f9003be0 	str	x0, [sp, #112]
+  422f28:	b94127f4 	ldr	w20, [sp, #292]                                        ########## SAMPLING POINT 1 WITH PICKLE: (outer loop) loading the number of elements from stack
+  422f2c:	91000400 	add	x0, x0, #0x1                                           ########## SAMPLING POINT 1 WITH PICKLE: (outer loop) increase "ie" <- WE USE THIS PC TO TRACK HOW MANY ELEMENTS HAVE BEEN PROCESSED
+  422f30:	f9003be0 	str	x0, [sp, #112]                                         ########## SAMPLING POINT 1 WITH PICKLE: (outer loop) store "ie" to stack
   422f34:	11000000 	add	w0, w0, #0x0
   422f38:	a952dbf5 	ldp	x21, x22, [sp, #296]
-  422f3c:	6b00029f 	cmp	w20, w0
-  422f40:	54ffb14c 	b.gt	422568 <transf_some_elements_with_pdev_._omp_fn.0+0xd8>
+  422f3c:	6b00029f 	cmp	w20, w0                                                ########## SAMPLING POINT 1 WITH PICKLE: (outer loop) comparing "ie" to number of elements
+  422f40:	54ffb14c 	b.gt	422568 <transf_some_elements_with_pdev_._omp_fn.0+0xd8> ########## SAMPLING POINT 1 WITH PICKLE: outer loop bound check
   422f44:	a94363f7 	ldp	x23, x24, [sp, #48]
   422f48:	a9446bf9 	ldp	x25, x26, [sp, #64]
   422f4c:	a94573fb 	ldp	x27, x28, [sp, #80]
@@ -33210,7 +33210,7 @@ Disassembly of section .text:
   423c9c:	17fffb4a 	b	4229c4 <transf_some_elements_with_pdev_._omp_fn.0+0x534>
   423ca0:	11000442 	add	w2, w2, #0x1
   423ca4:	52800001 	mov	w1, #0x0                   	// #0
-  423ca8:	17fffa0c 	b	4224d8 <transf_some_elements_with_pdev_._omp_fn.0+0x48>
+  423ca8:	17fffa0c 	b	4224d8 <transf_some_elements_with_pdev_._omp_fn.0+0x48>  ########## SAMPLING POINT 1 WITH PICKLE: outer loop ends
   423cac:	d503201f 	nop
 
 0000000000423cb0 <transfb_._omp_fn.0>:
@@ -34583,7 +34583,7 @@ Disassembly of section .text:
   425200:	6d072fea 	stp	d10, d11, [sp, #112]
   425204:	6d0837ec 	stp	d12, d13, [sp, #128]
   425208:	6d093fee 	stp	d14, d15, [sp, #144]
-  42520c:	aa1c03f9 	mov	x25, x28
+  42520c:	aa1c03f9 	mov	x25, x28                                               ########## SAMPLING POINT 2 WITHOUT PICKLE: start of outer loop
   425210:	f940b3f7 	ldr	x23, [sp, #352]
   425214:	b200f3e0 	mov	x0, #0x5555555555555555    	// #6148914691236517205
   425218:	aa1b03fc 	mov	x28, x27
@@ -34592,7 +34592,7 @@ Disassembly of section .text:
   425224:	f90057e1 	str	x1, [sp, #168]
   425228:	f9009fe0 	str	x0, [sp, #312]
   42522c:	b9016ff3 	str	w19, [sp, #364]
-  425230:	f94077e3 	ldr	x3, [sp, #232]
+  425230:	f94077e3 	ldr	x3, [sp, #232]                                         ########## SAMPLING POINT 2 WITHOUT PICKLE: start of inner loop
   425234:	f940a3ed 	ldr	x13, [sp, #320]
   425238:	a94acfec 	ldp	x12, x19, [sp, #168]
   42523c:	f9400465 	ldr	x5, [x3, #8]
@@ -35204,17 +35204,17 @@ Disassembly of section .text:
   425bb4:	f94057e0 	ldr	x0, [sp, #168]
   425bb8:	91000400 	add	x0, x0, #0x1
   425bbc:	f90057e0 	str	x0, [sp, #168]
-  425bc0:	f1001c1f 	cmp	x0, #0x7
-  425bc4:	54ffb361 	b.ne	425230 <transfb_some_elements_._omp_fn.0+0xe0>  // b.any
-  425bc8:	f940b3e0 	ldr	x0, [sp, #352]
+  425bc0:	f1001c1f 	cmp	x0, #0x7                                               ########## SAMPLING POINT 2 WITHOUT PICKLE: (inner loop) comparing iface to 7 (iface must be <= 6)
+  425bc4:	54ffb361 	b.ne	425230 <transfb_some_elements_._omp_fn.0+0xe0>  // b.any ########## SAMPLING POINT 2 WITHOUT PICKLE: inner loop boundary check
+  425bc8:	f940b3e0 	ldr	x0, [sp, #352]                                         ########## SAMPLING POINT 2 WITHOUT PICKLE: (outer loop) load "ie"
   425bcc:	aa1c03fb 	mov	x27, x28
-  425bd0:	b9416ff3 	ldr	w19, [sp, #364]
+  425bd0:	b9416ff3 	ldr	w19, [sp, #364]                                        ########## SAMPLING POINT 2 WITHOUT PICKLE: (outer loop) load number of elements
   425bd4:	aa1903fc 	mov	x28, x25
-  425bd8:	91000400 	add	x0, x0, #0x1
+  425bd8:	91000400 	add	x0, x0, #0x1                                           ########## SAMPLING POINT 2 WITHOUT PICKLE: (outer loop) increase "ie" <- WE USE THIS PC TO TRACK HOW MANY ELEMENTS HAVE BEEN PROCESSED
   425bdc:	f900b3e0 	str	x0, [sp, #352]
   425be0:	11000000 	add	w0, w0, #0x0
-  425be4:	6b00027f 	cmp	w19, w0
-  425be8:	54ffb12c 	b.gt	42520c <transfb_some_elements_._omp_fn.0+0xbc>
+  425be4:	6b00027f 	cmp	w19, w0                                                ########## SAMPLING POINT 2 WITHOUT PICKLE: (outer loop) comparing "ie" to number of elements
+  425be8:	54ffb12c 	b.gt	42520c <transfb_some_elements_._omp_fn.0+0xbc>        ########## SAMPLING POINT 2 WITHOUT PICKLE: outer loop boundary check
   425bec:	a94363f7 	ldp	x23, x24, [sp, #48]
   425bf0:	a9446bf9 	ldp	x25, x26, [sp, #64]
   425bf4:	a94573fb 	ldp	x27, x28, [sp, #80]
@@ -35885,24 +35885,24 @@ Disassembly of section .text:
   426650:	6d072fea 	stp	d10, d11, [sp, #112]
   426654:	6d0837ec 	stp	d12, d13, [sp, #128]
   426658:	6d093fee 	stp	d14, d15, [sp, #144]
-  42665c:	b200f3e0 	mov	x0, #0x5555555555555555    	// #6148914691236517205
+  42665c:	b200f3e0 	mov	x0, #0x5555555555555555    	// #6148914691236517205    ########## SAMPLING POINT 2 WITH PICKLE: start of outer loop
   426660:	f9400281 	ldr	x1, [x20]
   426664:	f2e7faa0 	movk	x0, #0x3fd5, lsl #48
   426668:	f9009fe0 	str	x0, [sp, #312]
   42666c:	d280003c 	mov	x28, #0x1                   	// #1
   426670:	f94002c0 	ldr	x0, [x22]
-  426674:	f9000037 	str	x23, [x1]
-  426678:	f90057f7 	str	x23, [sp, #168]
+  426674:	f9000037 	str	x23, [x1]                                              ########## SAMPLING POINT 2 WITH PICKLE: (outer loop) pkl_ucpage_kern3 = ie
+  426678:	f90057f7 	str	x23, [sp, #168]                                        ########## SAMPLING POINT 2 WITH PICKLE: (outer loop) "ie" is written back to the stack
   42667c:	f90063fc 	str	x28, [sp, #192]
   426680:	f940bbfc 	ldr	x28, [sp, #368]
-  426684:	f9000017 	str	x23, [x0]
+  426684:	f9000017 	str	x23, [x0]                                              ########## SAMPLING POINT 2 WITH PICKLE: (outer loop) pkl_ucpage_kern4 = ie
   426688:	aa1503f7 	mov	x23, x21
   42668c:	f900b3f6 	str	x22, [sp, #352]
   426690:	f940b7f5 	ldr	x21, [sp, #360]
   426694:	b9017ff3 	str	w19, [sp, #380]
   426698:	f900c3f4 	str	x20, [sp, #384]
   42669c:	d503201f 	nop
-  4266a0:	a94bb3f3 	ldp	x19, x12, [sp, #184]
+  4266a0:	a94bb3f3 	ldp	x19, x12, [sp, #184]                                   ########## SAMPLING POINT 2 WITH PICKLE: start of inner loop
   4266a4:	f9400784 	ldr	x4, [x28, #8]
   4266a8:	f9405381 	ldr	x1, [x28, #160]
   4266ac:	f94057e3 	ldr	x3, [sp, #168]
@@ -36427,20 +36427,20 @@ Disassembly of section .text:
   426ec8:	17ffffd6 	b	426e20 <transfb_some_elements_with_pdev_._omp_fn.0+0x8a0>
   426ecc:	aa1703f5 	mov	x21, x23
   426ed0:	aa1303f7 	mov	x23, x19
-  426ed4:	f94063e0 	ldr	x0, [sp, #192]
-  426ed8:	91000400 	add	x0, x0, #0x1
-  426edc:	f90063e0 	str	x0, [sp, #192]
-  426ee0:	f1001c1f 	cmp	x0, #0x7
-  426ee4:	54ffbde1 	b.ne	4266a0 <transfb_some_elements_with_pdev_._omp_fn.0+0x120>  // b.any
+  426ed4:	f94063e0 	ldr	x0, [sp, #192]                                         ########## SAMPLING POINT 2 WITH PICKLE: (inner loop) load "iface" from stack
+  426ed8:	91000400 	add	x0, x0, #0x1                                           ########## SAMPLING POINT 2 WITH PICKLE: (inner loop) increase "iface"
+  426edc:	f90063e0 	str	x0, [sp, #192]                                         ########## SAMPLING POINT 2 WITH PICKLE: (inner loop) store "iface" to stack
+  426ee0:	f1001c1f 	cmp	x0, #0x7                                               ########## SAMPLING POINT 2 WITH PICKLE: (inner loop) compare "iface" to 7 (iface must be <= 6)
+  426ee4:	54ffbde1 	b.ne	4266a0 <transfb_some_elements_with_pdev_._omp_fn.0+0x120>  // b.any ########## SAMPLING POINT 2 WITH PICKLE: inner loop boundary check
   426ee8:	aa1703f5 	mov	x21, x23
-  426eec:	b9417ff3 	ldr	w19, [sp, #380]
-  426ef0:	f94057f7 	ldr	x23, [sp, #168]
+  426eec:	b9417ff3 	ldr	w19, [sp, #380]                                        ########## SAMPLING POINT 2 WITH PICKLE: (outer loop) load number of elements
+  426ef0:	f94057f7 	ldr	x23, [sp, #168]                                        ########## SAMPLING POINT 2 WITH PICKLE: (outer loop) load "ie"
   426ef4:	f940b3f6 	ldr	x22, [sp, #352]
-  426ef8:	910006f7 	add	x23, x23, #0x1
-  426efc:	110002e0 	add	w0, w23, #0x0
+  426ef8:	910006f7 	add	x23, x23, #0x1                                         ########## SAMPLING POINT 2 WITH PICKLE: (outer loop) increase "ie"  <- WE USE THIS PC TO TRACK HOW MANY ELEMENTS HAVE BEEN PROCESSED
+  426efc:	110002e0 	add	w0, w23, #0x0                                          ########## SAMPLING POINT 2 WITH PICKLE: (outer loop) move "ie" to w0
   426f00:	f940c3f4 	ldr	x20, [sp, #384]
-  426f04:	6b00027f 	cmp	w19, w0
-  426f08:	54ffbaac 	b.gt	42665c <transfb_some_elements_with_pdev_._omp_fn.0+0xdc>
+  426f04:	6b00027f 	cmp	w19, w0                                                ########## SAMPLING POINT 2 WITH PICKLE: (outer loop) compare "ie" to number of elements
+  426f08:	54ffbaac 	b.gt	42665c <transfb_some_elements_with_pdev_._omp_fn.0+0xdc> ########## SAMPLING POINT 2 WITH PICKLE: outer loop boundary check
   426f0c:	a9425bf5 	ldp	x21, x22, [sp, #32]
   426f10:	a9446bf9 	ldp	x25, x26, [sp, #64]
   426f14:	a94573fb 	ldp	x27, x28, [sp, #80]
