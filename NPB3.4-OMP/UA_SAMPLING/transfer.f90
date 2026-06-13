@@ -18,10 +18,10 @@
       return
       end
 
-
 !------------------------------------------------------------------
       subroutine transf(tmor,tx)
 !------------------------------------------------------------------
+!     *** The original transf function ***
 !     Map values from mortar(tmor) to element(tx)
 !------------------------------------------------------------------
 
@@ -40,7 +40,508 @@
 !$OMP& ig3,ig2,ig1,nnje,il4,il3,il2,il1,iface,ie,tmp)
       do ie=1,nelt
         do iface=1,nsides
+!.........get the collocation point index of the four local corners on the
+!         face iface of element ie
+          il1=idel(1,1,iface,ie)
+          il2=idel(lx1,1,iface,ie)
+          il3=idel(1,lx1,iface,ie)
+          il4=idel(lx1,lx1,iface,ie)
 
+!.........get the mortar indices of the four local corners
+          ig1= idmo(1,  1  ,1,1,iface,ie)
+          ig2= idmo(lx1,1  ,1,2,iface,ie)
+          ig3= idmo(1,  lx1,2,1,iface,ie)
+          ig4= idmo(lx1,lx1,2,2,iface,ie)
+
+!.........copy the value from tmor to tx for these four local corners
+          tx(il1) = tmor(ig1)
+          tx(il2) = tmor(ig2)
+          tx(il3) = tmor(ig3)
+          tx(il4) = tmor(ig4)
+
+!.........nnje=1 for conforming faces, nnje=2 for nonconforming faces
+          if(cbc(iface,ie).eq.3) then
+            nnje=2
+          else
+            nnje=1
+          end if
+
+!.........for nonconforming faces
+          if(nnje.eq.2) then
+
+!...........nonconforming faces have four pieces of mortar, first map them to
+!           two intermediate mortars, stored in tmp
+            call r_init(tmp,lx1*lx1*2,0.d0)
+
+            do ije1=1,nnje
+              do ije2=1,nnje
+                do col=1,lx1
+
+!.................in each row col, when coloumn i=1 or lx1, the value
+!                 in tmor is copied to tmp
+                  i = v_end(ije2)
+                  ig=idmo(i,col,ije1,ije2,iface,ie)
+                  tmp(i,col,ije1)=tmor(ig)
+
+!.................in each row col, value in the interior three collocation
+!                 points is computed by apply mapping matrix qbnew to tmor
+                  do i=2,lx1-1
+                    il= idel(i,col,iface,ie)
+                    do j=1,lx1
+                      ig=idmo(j,col,ije1,ije2,iface,ie)
+                      tmp(i,col,ije1) = tmp(i,col,ije1) +  &
+     &                qbnew(i-1,j,ije2)*tmor(ig)
+                    end do
+                  end do
+
+                end do
+              end do
+            end do
+
+!...........mapping from two pieces of intermediate mortar tmp to element
+!           face tx
+
+            do ije1=1, nnje
+
+!.............the first column, col=1, is an edge of face iface.
+!             the value on the three interior collocation points, tx, is
+!             computed by applying mapping matrices qbnew to tmp.
+!             the mapping result is divided by 2, because there will be
+!             duplicated contribution from another face sharing this edge.
+              col=1
+              do i=2,lx1-1
+                il= idel(col,i,iface,ie)
+                do j=1,lx1
+                    tx(il) = tx(il) + qbnew(i-1,j,ije1)*  &
+     &                       tmp(col,j,ije1)*0.5d0
+                end do
+              end do
+
+!.............for column 2 ~ lx-1
+              do col=2,lx1-1
+
+!...............when i=1 or lx1, the collocation points are also on an edge of
+!               the face, so the mapping result also needs to be divided by 2
+                i = v_end(ije1)
+                il= idel(col,i,iface,ie)
+                tx(il)=tx(il)+tmp(col,i,ije1)*0.5d0
+
+!...............compute the value at interior collocation points in
+!               columns 2 ~ lx1
+                do i=2,lx1-1
+                  il= idel(col,i,iface,ie)
+                  do j=1,lx1
+                    tx(il) = tx(il) + qbnew(i-1,j,ije1)* tmp(col,j,ije1)
+                  end do
+                end do
+              end do
+
+!.............same as col=1
+              col=lx1
+              do  i=2,lx1-1
+                il= idel(col,i,iface,ie)
+                do j=1,lx1
+                  tx(il) = tx(il) + qbnew(i-1,j,ije1)*  &
+     &                     tmp(col,j,ije1)*0.5d0
+                end do
+              end do
+            end do
+
+!.........for conforming faces
+          else
+
+!.........face interior
+            do col=2,lx1-1
+              do i=2,lx1-1
+                il= idel(i,col,iface,ie)
+                ig= idmo(i,col,1,1,iface,ie)
+                tx(il)=tmor(ig)
+              end do
+            end do
+
+
+!...........edges of conforming faces
+
+!...........if local edge 1 is a nonconforming edge
+            if(idmo(lx1,1,1,1,iface,ie).ne.0)then
+              do i=2,lx1-1
+                il= idel(i,1,iface,ie)
+                do ije1=1,2
+                  do j=1,lx1
+                    ig=idmo(j,1,1,ije1,iface,ie)
+                    tx(il) = tx(il) + qbnew(i-1,j,ije1)*tmor(ig)*0.5d0
+                  end do
+                end do
+              end do
+
+!...........if local edge 1 is a conforming edge
+            else
+              do i=2,lx1-1
+                il= idel(i,1,iface,ie)
+                ig= idmo(i,1,1,1,iface,ie)
+                tx(il)=tmor(ig)
+              end do
+            end if
+
+!...........if local edge 2 is a nonconforming edge
+            if(idmo(lx1,2,1,2,iface,ie).ne.0)then
+              do i=2,lx1-1
+                il= idel(lx1,i,iface,ie)
+                do ije1=1,2
+                  do j=1,lx1
+                    ig=idmo(lx1,j,ije1,2,iface,ie)
+                    tx(il) = tx(il) + qbnew(i-1,j,ije1)*tmor(ig)*0.5d0
+                  end do
+                end do
+              end do
+
+!...........if local edge 2 is a conforming edge
+            else
+              do i=2,lx1-1
+                il= idel(lx1,i,iface,ie)
+                ig= idmo(lx1,i,1,1,iface,ie)
+                tx(il)=tmor(ig)
+              end do
+            end if
+
+!...........if local edge 3 is a nonconforming edge
+            if(idmo(2,lx1,2,1,iface,ie).ne.0)then
+              do  i=2,lx1-1
+                il= idel(i,lx1,iface,ie)
+                do ije1=1,2
+                  do j=1,lx1
+                    ig=idmo(j,lx1,2,ije1,iface,ie)
+                    tx(il) = tx(il) + qbnew(i-1,j,ije1)*tmor(ig)*0.5d0
+                  end do
+                end do
+              end do
+
+!...........if local edge 3 is a conforming edge
+            else
+              do i=2,lx1-1
+                il= idel(i,lx1,iface,ie)
+                ig= idmo(i,lx1,1,1,iface,ie)
+                tx(il)=tmor(ig)
+              end do
+            end if
+
+!...........if local edge 4 is a nonconforming edge
+            if(idmo(1,lx1,1,1,iface,ie).ne.0)then
+              do i=2,lx1-1
+                il= idel(1,i,iface,ie)
+                do ije1=1,2
+                  do j=1,lx1
+                    ig=idmo(1,j,ije1,1,iface,ie)
+                    tx(il) = tx(il) + qbnew(i-1,j,ije1)*tmor(ig)*0.5d0
+                  end do
+                end do
+              end do
+!...........if local edge 4 is a conforming edge
+            else
+              do i=2,lx1-1
+                il= idel(1,i,iface,ie)
+                ig= idmo(1,i,1,1,iface,ie)
+                tx(il)=tmor(ig)
+              end do
+            end if
+          end if
+
+        end do
+      end do
+!$OMP END PARALLEL DO
+
+      return
+      end
+
+!------------------------------------------------------------------
+      subroutine transf_some_elements(tmor,tx,starting_element,ending_element)
+!------------------------------------------------------------------
+!     *** transf for only some elements ***
+!     *** WARNING: use for skipping element and cache warmup only ***
+!     *** Different from the original transf() function, this function does not call col2 at the beginning to zero out tx ***
+!     Map values from mortar(tmor) to element(tx)
+!------------------------------------------------------------------
+
+      use ua_data
+      implicit none
+
+      integer, intent(in) :: starting_element
+      integer, intent(in) :: ending_element
+
+      double precision tmor(*),tx(*), tmp(lx1,lx1,2)
+      integer ig1,ig2,ig3,ig4,ie,iface,il1,il2,il3,il4,  &
+     &        nnje,ije1,ije2,col,i,j,ig,il
+
+
+!.....zero out tx on element boundaries
+      call col2(tx,tmult,ntot)
+
+!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(il,j,ig,i,col,ije2,ije1,ig4,  &
+!$OMP& ig3,ig2,ig1,nnje,il4,il3,il2,il1,iface,ie,tmp,                   &
+!$OMP& starting_element,ending_element)
+      do ie=starting_element,ending_element
+        do iface=1,nsides
+!.........get the collocation point index of the four local corners on the
+!         face iface of element ie
+          il1=idel(1,1,iface,ie)
+          il2=idel(lx1,1,iface,ie)
+          il3=idel(1,lx1,iface,ie)
+          il4=idel(lx1,lx1,iface,ie)
+
+!.........get the mortar indices of the four local corners
+          ig1= idmo(1,  1  ,1,1,iface,ie)
+          ig2= idmo(lx1,1  ,1,2,iface,ie)
+          ig3= idmo(1,  lx1,2,1,iface,ie)
+          ig4= idmo(lx1,lx1,2,2,iface,ie)
+
+!.........copy the value from tmor to tx for these four local corners
+          tx(il1) = tmor(ig1)
+          tx(il2) = tmor(ig2)
+          tx(il3) = tmor(ig3)
+          tx(il4) = tmor(ig4)
+
+!.........nnje=1 for conforming faces, nnje=2 for nonconforming faces
+          if(cbc(iface,ie).eq.3) then
+            nnje=2
+          else
+            nnje=1
+          end if
+
+!.........for nonconforming faces
+          if(nnje.eq.2) then
+
+!...........nonconforming faces have four pieces of mortar, first map them to
+!           two intermediate mortars, stored in tmp
+            call r_init(tmp,lx1*lx1*2,0.d0)
+
+            do ije1=1,nnje
+              do ije2=1,nnje
+                do col=1,lx1
+
+!.................in each row col, when coloumn i=1 or lx1, the value
+!                 in tmor is copied to tmp
+                  i = v_end(ije2)
+                  ig=idmo(i,col,ije1,ije2,iface,ie)
+                  tmp(i,col,ije1)=tmor(ig)
+
+!.................in each row col, value in the interior three collocation
+!                 points is computed by apply mapping matrix qbnew to tmor
+                  do i=2,lx1-1
+                    il= idel(i,col,iface,ie)
+                    do j=1,lx1
+                      ig=idmo(j,col,ije1,ije2,iface,ie)
+                      tmp(i,col,ije1) = tmp(i,col,ije1) +  &
+     &                qbnew(i-1,j,ije2)*tmor(ig)
+                    end do
+                  end do
+
+                end do
+              end do
+            end do
+
+!...........mapping from two pieces of intermediate mortar tmp to element
+!           face tx
+
+            do ije1=1, nnje
+
+!.............the first column, col=1, is an edge of face iface.
+!             the value on the three interior collocation points, tx, is
+!             computed by applying mapping matrices qbnew to tmp.
+!             the mapping result is divided by 2, because there will be
+!             duplicated contribution from another face sharing this edge.
+              col=1
+              do i=2,lx1-1
+                il= idel(col,i,iface,ie)
+                do j=1,lx1
+                    tx(il) = tx(il) + qbnew(i-1,j,ije1)*  &
+     &                       tmp(col,j,ije1)*0.5d0
+                end do
+              end do
+
+!.............for column 2 ~ lx-1
+              do col=2,lx1-1
+
+!...............when i=1 or lx1, the collocation points are also on an edge of
+!               the face, so the mapping result also needs to be divided by 2
+                i = v_end(ije1)
+                il= idel(col,i,iface,ie)
+                tx(il)=tx(il)+tmp(col,i,ije1)*0.5d0
+
+!...............compute the value at interior collocation points in
+!               columns 2 ~ lx1
+                do i=2,lx1-1
+                  il= idel(col,i,iface,ie)
+                  do j=1,lx1
+                    tx(il) = tx(il) + qbnew(i-1,j,ije1)* tmp(col,j,ije1)
+                  end do
+                end do
+              end do
+
+!.............same as col=1
+              col=lx1
+              do  i=2,lx1-1
+                il= idel(col,i,iface,ie)
+                do j=1,lx1
+                  tx(il) = tx(il) + qbnew(i-1,j,ije1)*  &
+     &                     tmp(col,j,ije1)*0.5d0
+                end do
+              end do
+            end do
+
+!.........for conforming faces
+          else
+
+!.........face interior
+            do col=2,lx1-1
+              do i=2,lx1-1
+                il= idel(i,col,iface,ie)
+                ig= idmo(i,col,1,1,iface,ie)
+                tx(il)=tmor(ig)
+              end do
+            end do
+
+
+!...........edges of conforming faces
+
+!...........if local edge 1 is a nonconforming edge
+            if(idmo(lx1,1,1,1,iface,ie).ne.0)then
+              do i=2,lx1-1
+                il= idel(i,1,iface,ie)
+                do ije1=1,2
+                  do j=1,lx1
+                    ig=idmo(j,1,1,ije1,iface,ie)
+                    tx(il) = tx(il) + qbnew(i-1,j,ije1)*tmor(ig)*0.5d0
+                  end do
+                end do
+              end do
+
+!...........if local edge 1 is a conforming edge
+            else
+              do i=2,lx1-1
+                il= idel(i,1,iface,ie)
+                ig= idmo(i,1,1,1,iface,ie)
+                tx(il)=tmor(ig)
+              end do
+            end if
+
+!...........if local edge 2 is a nonconforming edge
+            if(idmo(lx1,2,1,2,iface,ie).ne.0)then
+              do i=2,lx1-1
+                il= idel(lx1,i,iface,ie)
+                do ije1=1,2
+                  do j=1,lx1
+                    ig=idmo(lx1,j,ije1,2,iface,ie)
+                    tx(il) = tx(il) + qbnew(i-1,j,ije1)*tmor(ig)*0.5d0
+                  end do
+                end do
+              end do
+
+!...........if local edge 2 is a conforming edge
+            else
+              do i=2,lx1-1
+                il= idel(lx1,i,iface,ie)
+                ig= idmo(lx1,i,1,1,iface,ie)
+                tx(il)=tmor(ig)
+              end do
+            end if
+
+!...........if local edge 3 is a nonconforming edge
+            if(idmo(2,lx1,2,1,iface,ie).ne.0)then
+              do  i=2,lx1-1
+                il= idel(i,lx1,iface,ie)
+                do ije1=1,2
+                  do j=1,lx1
+                    ig=idmo(j,lx1,2,ije1,iface,ie)
+                    tx(il) = tx(il) + qbnew(i-1,j,ije1)*tmor(ig)*0.5d0
+                  end do
+                end do
+              end do
+
+!...........if local edge 3 is a conforming edge
+            else
+              do i=2,lx1-1
+                il= idel(i,lx1,iface,ie)
+                ig= idmo(i,lx1,1,1,iface,ie)
+                tx(il)=tmor(ig)
+              end do
+            end if
+
+!...........if local edge 4 is a nonconforming edge
+            if(idmo(1,lx1,1,1,iface,ie).ne.0)then
+              do i=2,lx1-1
+                il= idel(1,i,iface,ie)
+                do ije1=1,2
+                  do j=1,lx1
+                    ig=idmo(1,j,ije1,1,iface,ie)
+                    tx(il) = tx(il) + qbnew(i-1,j,ije1)*tmor(ig)*0.5d0
+                  end do
+                end do
+              end do
+!...........if local edge 4 is a conforming edge
+            else
+              do i=2,lx1-1
+                il= idel(1,i,iface,ie)
+                ig= idmo(1,i,1,1,iface,ie)
+                tx(il)=tmor(ig)
+              end do
+            end if
+          end if
+
+        end do
+      end do
+!$OMP END PARALLEL DO
+
+      return
+      end
+
+!------------------------------------------------------------------
+      subroutine transf_some_elements_with_pdev(tmor,tx,starting_element,ending_element)
+!------------------------------------------------------------------
+!     *** Modified transf function for Pickle ***
+!     *** Different from the original transf() function, this function does not call col2 at the beginning to zero out tx***
+!     Map values from mortar(tmor) to element(tx)
+!------------------------------------------------------------------
+
+      use ua_data
+      implicit none
+
+      integer, intent(in) :: starting_element
+      integer, intent(in) :: ending_element
+
+      double precision tmor(*),tx(*), tmp(lx1,lx1,2)
+      integer ig1,ig2,ig3,ig4,ie,iface,il1,il2,il3,il4,  &
+     &        nnje,ije1,ije2,col,i,j,ig,il
+
+
+!.....zero out tx on element boundaries
+      call col2(tx,tmult,ntot)
+
+!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(il,j,ig,i,col,ije2,ije1,ig4,  &
+!$OMP& ig3,ig2,ig1,nnje,il4,il3,il2,il1,iface,ie,tmp,                   &
+!$OMP& starting_element,ending_element)
+      do ie=starting_element,ending_element
+
+! ============================================================
+!  PICKLE PREFETCH HINT — transf (idel→pdiff and idmo→pmorx)
+!
+!  For each (ie, iface), idel(:,:,iface,ie) is iterated as
+!  lx1*lx1 = 25 consecutive ints, and idmo(:,:,:,:,iface,ie)
+!  as lx1*lx1*lnje*lnje = 100 consecutive ints.  The 0-based
+!  starting offsets are sent to UCPage_kern1 (idel) and
+!  UCPage_kern2 (idmo); the device reads ahead by
+!  prefetch_distance entries and prefetches the corresponding
+!  pdiff/pmorx cache lines.
+!
+!  Hints fire only when pkl_send_hints is .true., set by
+!  diffusion() around the CG inner-loop calls so we don't
+!  prefetch into the wrong target arrays for transf calls
+!  outside that loop (e.g. transf(tmort,ta1) in the main step).
+! ============================================================
+#if ENABLE_PICKLEDEVICE==1
+        pkl_ucpage_kern1 = ie
+        pkl_ucpage_kern2 = ie
+#endif
+        do iface=1,nsides
 !.........get the collocation point index of the four local corners on the
 !         face iface of element ie
           il1=idel(1,1,iface,ie)
@@ -1111,4 +1612,3 @@
 
       return
       end
-
