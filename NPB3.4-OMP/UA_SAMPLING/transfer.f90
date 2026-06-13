@@ -258,7 +258,6 @@
 !------------------------------------------------------------------
 !     *** transf for only some elements ***
 !     *** WARNING: use for skipping element and cache warmup only ***
-!     *** Different from the original transf() function, this function does not call col2 at the beginning to zero out tx ***
 !     Map values from mortar(tmor) to element(tx)
 !------------------------------------------------------------------
 
@@ -274,7 +273,9 @@
 
 
 !.....zero out tx on element boundaries
-      call col2(tx,tmult,ntot)
+      if (starting_element == 1) then
+         call col2(tx,tmult,ntot)
+      endif
 
 !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(il,j,ig,i,col,ije2,ije1,ig4,  &
 !$OMP& ig3,ig2,ig1,nnje,il4,il3,il2,il1,iface,ie,tmp,                   &
@@ -512,9 +513,6 @@
       integer ig1,ig2,ig3,ig4,ie,iface,il1,il2,il3,il4,  &
      &        nnje,ije1,ije2,col,i,j,ig,il
 
-
-!.....zero out tx on element boundaries
-      call col2(tx,tmult,ntot)
 
 !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(il,j,ig,i,col,ije2,ije1,ig4,  &
 !$OMP& ig3,ig2,ig1,nnje,il4,il3,il2,il1,iface,ie,tmp,                   &
@@ -760,6 +758,7 @@
       subroutine transfb(tmor,tx)
 !------------------------------------------------------------------
 !     Map from element(tx) to mortar(tmor).
+!     *** The original transf function ***
 !     tmor sums contributions from all elements.
 !------------------------------------------------------------------
 
@@ -788,6 +787,658 @@
 !$OMP DO
       do ie=1,nelt
         do iface=1,nsides
+
+!.........nnje=1 for conforming faces, nnje=2 for nonconforming faces
+          if(cbc(iface,ie).eq.3) then
+            nnje=2
+          else
+            nnje=1
+          end if
+
+!.........get collocation point index of four local corners on the face
+          il1 = idel(1,  1,  iface,ie)
+          il2 = idel(lx1,1,  iface,ie)
+          il3 = idel(1,  lx1,iface,ie)
+          il4 = idel(lx1,lx1,iface,ie)
+
+!.........get the mortar indices of the four local corners
+          ig1 = idmo(1,  1,  1,1,iface,ie)
+          ig2 = idmo(lx1,1,  1,2,iface,ie)
+          ig3 = idmo(1,  lx1,2,1,iface,ie )
+          ig4 = idmo(lx1,lx1,2,2,iface,ie)
+
+!.........sum the values from tx to tmor for these four local corners
+!         only 1/3 of the value is summed, since there will be two duplicated
+!         contributions from the other two faces sharing this vertex
+!
+!$        call omp_set_lock(tlock(ig1))
+          tmor(ig1) = tmor(ig1)+tx(il1)*third
+!$        call omp_unset_lock(tlock(ig1))
+!
+!$        call omp_set_lock(tlock(ig2))
+          tmor(ig2) = tmor(ig2)+tx(il2)*third
+!$        call omp_unset_lock(tlock(ig2))
+!
+!$        call omp_set_lock(tlock(ig3))
+          tmor(ig3) = tmor(ig3)+tx(il3)*third
+!$        call omp_unset_lock(tlock(ig3))
+!
+!$        call omp_set_lock(tlock(ig4))
+          tmor(ig4) = tmor(ig4)+tx(il4)*third
+!$        call omp_unset_lock(tlock(ig4))
+
+!.........for nonconforming faces
+          if(nnje.eq.2) then
+            call r_init(temp,lx1*lx1*2,0.d0)
+
+!...........nonconforming faces have four pieces of mortar, first map tx to
+!           two intermediate mortars stored in temp
+
+            do ije2 = 1, nnje
+              shift = ije2-1
+              do col=1,lx1
+!...............For mortar points on face edge (top and bottom), copy the
+!               value from tx to temp
+                il=idel(col,v_end(ije2),iface,ie)
+                temp(col,v_end(ije2),ije2)=tx(il)
+
+!...............For mortar points on face edge (top and bottom), calculate
+!               the interior points' contribution to them, i.e. top()
+                j = v_end(ije2)
+                tmp=0.d0
+                do i=2,lx1-1
+                  il=idel(col,i,iface,ie)
+                  tmp = tmp + qbnew(i-1,j,ije2)*tx(il)
+                end do
+
+                top(col,ije2)=tmp
+
+!...............Use mapping matrices qbnew to map the value from tx to temp
+!               for mortar points not on the top bottom face edge.
+                do j=2-shift,lx1-shift
+                  tmp=0.d0
+                  do i=2,lx1-1
+                    il=idel(col,i,iface,ie)
+                    tmp = tmp + qbnew(i-1,j,ije2)*tx(il)
+                  end do
+                  temp(col,j,ije2) = tmp + temp(col,j,ije2)
+                end do
+              end do
+            end do
+
+!...........mapping from temp to tmor
+
+            do ije1=1, nnje
+              shift = ije1-1
+              do ije2=1,nnje
+
+!...............for each column of collocation points on a piece of mortar
+                do col=2-shift,lx1-shift
+
+!.................For the end point, which is on an edge (local edge 2,4),
+!                 the contribution is halved since there will be duplicated
+!                 contribution from another face sharing this edge.
+
+                  ig=idmo(v_end(ije2),col,ije1,ije2,iface,ie)
+!
+!$                call omp_set_lock(tlock(ig))
+                  tmor(ig)=tmor(ig)+temp(v_end(ije2),col,ije1)*0.5d0
+!$                call omp_unset_lock(tlock(ig))
+
+!.................In each row of collocation points on a piece of mortar,
+!                 sum the contributions from interior collocation points
+!                 (i=2,lx1-1)
+
+                  do  j=1,lx1
+                    tmp=0.d0
+                    do i=2,lx1-1
+                      tmp = tmp + qbnew(i-1,j,ije2) * temp(i,col,ije1)
+                    end do
+                    ig=idmo(j,col,ije1,ije2,iface,ie)
+!
+!$                  call omp_set_lock(tlock(ig))
+                    tmor(ig)=tmor(ig)+tmp
+!$                  call omp_unset_lock(tlock(ig))
+                  end do
+                end do
+
+!...............For tmor on local edge 1 and 3, tmp is the contribution from
+!               an edge, so it is halved because of duplicated contribution
+!               from another face sharing this edge. tmp1 is contribution
+!               from face interior.
+
+                col = v_end(ije1)
+                ig=idmo(v_end(ije2),col,ije1,ije2,iface,ie)
+!
+!$              call omp_set_lock(tlock(ig))
+                tmor(ig)=tmor(ig)+top(v_end(ije2),ije1)*0.5d0
+!$              call omp_unset_lock(tlock(ig))
+                do  j=1,lx1
+                  tmp=0.d0
+                  tmp1=0.d0
+                  do i=2,lx1-1
+                    tmp  = tmp  + qbnew(i-1,j,ije2) * temp(i,col,ije1)
+                    tmp1 = tmp1 + qbnew(i-1,j,ije2) * top(i,ije1)
+                  end do
+                  ig=idmo(j,col,ije1,ije2,iface,ie)
+!
+!$                call omp_set_lock(tlock(ig))
+                  tmor(ig)=tmor(ig)+tmp*0.5d0+tmp1
+!$                call omp_unset_lock(tlock(ig))
+                end do
+              end do
+            end do
+
+!.........for conforming faces
+          else
+
+!.........face interior
+            do col=2,lx1-1
+              do j=2,lx1-1
+                il=idel(j,col,iface,ie)
+                ig=idmo(j,col,1,1,iface,ie)
+!
+!$              call omp_set_lock(tlock(ig))
+                tmor(ig)=tmor(ig)+tx(il)
+!$              call omp_unset_lock(tlock(ig))
+              end do
+            end do
+
+!...........edges of conforming faces
+
+!...........if local edge 1 is a nonconforming edge
+            if(idmo(lx1,1,1,1,iface,ie).ne.0)then
+              do ije=1,2
+                do j=1,lx1
+                  tmp=0.d0
+                  do i=2,lx1-1
+                    il=idel(i,1,iface,ie)
+                    tmp= tmp + qbnew(i-1,j,ije)*tx(il)
+                  end do
+                  ig=idmo(j,1,1,ije,iface,ie)
+!
+!$                call omp_set_lock(tlock(ig))
+                  tmor(ig)=tmor(ig)+tmp*0.5d0
+!$                call omp_unset_lock(tlock(ig))
+                end do
+              end do
+
+!...........if local edge 1 is a conforming edge
+            else
+              do j=2,lx1-1
+                il=idel(j,1,iface,ie)
+                ig=idmo(j,1,1,1,iface,ie)
+!
+!$              call omp_set_lock(tlock(ig))
+                tmor(ig)=tmor(ig)+tx(il)*0.5d0
+!$              call omp_unset_lock(tlock(ig))
+              end do
+            end if
+
+!...........if local edge 2 is a nonconforming edge
+            if(idmo(lx1,2,1,2,iface,ie).ne.0)then
+              do ije=1,2
+                do j=1,lx1
+                  tmp=0.d0
+                  do i=2,lx1-1
+                    il=idel(lx1,i,iface,ie)
+                    tmp = tmp + qbnew(i-1,j,ije)*tx(il)
+                  end do
+                  ig=idmo(lx1,j,ije,2,iface,ie)
+!
+!$                call omp_set_lock(tlock(ig))
+                  tmor(ig)=tmor(ig)+tmp*0.5d0
+!$                call omp_unset_lock(tlock(ig))
+                end do
+              end do
+
+!...........if local edge 2 is a conforming edge
+            else
+              do j=2,lx1-1
+                il=idel(lx1,j,iface,ie)
+                ig=idmo(lx1,j,1,1,iface,ie)
+!
+!$              call omp_set_lock(tlock(ig))
+                tmor(ig)=tmor(ig)+tx(il)*0.5d0
+!$              call omp_unset_lock(tlock(ig))
+              end do
+            end if
+
+!...........if local edge 3 is a nonconforming edge
+            if(idmo(2,lx1,2,1,iface,ie).ne.0)then
+              do ije=1,2
+                do j=1,lx1
+                  tmp=0.d0
+                  do i=2,lx1-1
+                    il=idel(i,lx1,iface,ie)
+                    tmp = tmp + qbnew(i-1,j,ije)*tx(il)
+                  end do
+                  ig=idmo(j,lx1,2,ije,iface,ie)
+!
+!$                call omp_set_lock(tlock(ig))
+                  tmor(ig)=tmor(ig)+tmp*0.5d0
+!$                call omp_unset_lock(tlock(ig))
+                end do
+              end do
+
+!...........if local edge 3 is a conforming edge
+            else
+              do j=2,lx1-1
+                il=idel(j,lx1,iface,ie)
+                ig=idmo(j,lx1,1,1,iface,ie)
+!
+!$              call omp_set_lock(tlock(ig))
+                tmor(ig)=tmor(ig)+tx(il)*0.5d0
+!$              call omp_unset_lock(tlock(ig))
+              end do
+            end if
+
+!...........if local edge 4 is a nonconforming edge
+            if(idmo(1,lx1,1,1,iface,ie).ne.0)then
+              do ije=1,2
+                do j=1,lx1
+                  tmp=0.d0
+                  do i=2,lx1-1
+                    il=idel(1,i,iface,ie)
+                    tmp = tmp + qbnew(i-1,j,ije)*tx(il)
+                  end do
+                  ig=idmo(1,j,ije,1,iface,ie)
+!
+!$                call omp_set_lock(tlock(ig))
+                  tmor(ig)=tmor(ig)+tmp*0.5d0
+!$                call omp_unset_lock(tlock(ig))
+                end do
+              end do
+
+!...........if local edge 4 is a conforming edge
+            else
+              do j=2,lx1-1
+                il=idel(1,j,iface,ie)
+                ig=idmo(1,j,1,1,iface,ie)
+!
+!$              call omp_set_lock(tlock(ig))
+                tmor(ig)=tmor(ig)+tx(il)*0.5d0
+!$              call omp_unset_lock(tlock(ig))
+              end do
+            end if
+          end if
+        end do
+      end do
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+      return
+      end
+
+!------------------------------------------------------------------
+      subroutine transfb_some_elements(tmor,tx,starting_element,ending_element)
+!------------------------------------------------------------------
+!     Map from element(tx) to mortar(tmor).
+!     *** WARNING: only used for warming up caches ***
+!     tmor sums contributions from all elements.
+!------------------------------------------------------------------
+
+      use ua_data
+      implicit none
+
+      integer intent(in) :: starting_element, ending_element
+
+      double precision third
+      parameter (third=1.d0/3.d0)
+      integer shift
+
+      double precision tmp,tmp1,tx(*),tmor(*),temp(lx1,lx1,2),  &
+     &                 top(lx1,2)
+      integer il1,il2,il3,il4,ig1,ig2,ig3,ig4,ie,iface,nnje,  &
+     &        ije1,ije2,col,i,j,ije,ig,il
+
+!$OMP PARALLEL DEFAULT(SHARED) PRIVATE(il,j,ig,i,col,ije2,ije1,ig4,  &
+!$OMP& ig3,ig2,ig1,nnje,il4,il3,il2,il1,iface,ie,ije,  &
+!$OMP& tmp,shift,temp,top,tmp1, starting_element, ending_element)
+
+!$OMP DO
+      if (starting_element == 1) then
+        do ie=1,nmor
+          tmor(ie)=0.d0
+        end do
+      end if
+!$OMP END DO
+
+!$OMP DO
+      do ie=starting_element,ending_element
+        do iface=1,nsides
+
+!.........nnje=1 for conforming faces, nnje=2 for nonconforming faces
+          if(cbc(iface,ie).eq.3) then
+            nnje=2
+          else
+            nnje=1
+          end if
+
+!.........get collocation point index of four local corners on the face
+          il1 = idel(1,  1,  iface,ie)
+          il2 = idel(lx1,1,  iface,ie)
+          il3 = idel(1,  lx1,iface,ie)
+          il4 = idel(lx1,lx1,iface,ie)
+
+!.........get the mortar indices of the four local corners
+          ig1 = idmo(1,  1,  1,1,iface,ie)
+          ig2 = idmo(lx1,1,  1,2,iface,ie)
+          ig3 = idmo(1,  lx1,2,1,iface,ie )
+          ig4 = idmo(lx1,lx1,2,2,iface,ie)
+
+!.........sum the values from tx to tmor for these four local corners
+!         only 1/3 of the value is summed, since there will be two duplicated
+!         contributions from the other two faces sharing this vertex
+!
+!$        call omp_set_lock(tlock(ig1))
+          tmor(ig1) = tmor(ig1)+tx(il1)*third
+!$        call omp_unset_lock(tlock(ig1))
+!
+!$        call omp_set_lock(tlock(ig2))
+          tmor(ig2) = tmor(ig2)+tx(il2)*third
+!$        call omp_unset_lock(tlock(ig2))
+!
+!$        call omp_set_lock(tlock(ig3))
+          tmor(ig3) = tmor(ig3)+tx(il3)*third
+!$        call omp_unset_lock(tlock(ig3))
+!
+!$        call omp_set_lock(tlock(ig4))
+          tmor(ig4) = tmor(ig4)+tx(il4)*third
+!$        call omp_unset_lock(tlock(ig4))
+
+!.........for nonconforming faces
+          if(nnje.eq.2) then
+            call r_init(temp,lx1*lx1*2,0.d0)
+
+!...........nonconforming faces have four pieces of mortar, first map tx to
+!           two intermediate mortars stored in temp
+
+            do ije2 = 1, nnje
+              shift = ije2-1
+              do col=1,lx1
+!...............For mortar points on face edge (top and bottom), copy the
+!               value from tx to temp
+                il=idel(col,v_end(ije2),iface,ie)
+                temp(col,v_end(ije2),ije2)=tx(il)
+
+!...............For mortar points on face edge (top and bottom), calculate
+!               the interior points' contribution to them, i.e. top()
+                j = v_end(ije2)
+                tmp=0.d0
+                do i=2,lx1-1
+                  il=idel(col,i,iface,ie)
+                  tmp = tmp + qbnew(i-1,j,ije2)*tx(il)
+                end do
+
+                top(col,ije2)=tmp
+
+!...............Use mapping matrices qbnew to map the value from tx to temp
+!               for mortar points not on the top bottom face edge.
+                do j=2-shift,lx1-shift
+                  tmp=0.d0
+                  do i=2,lx1-1
+                    il=idel(col,i,iface,ie)
+                    tmp = tmp + qbnew(i-1,j,ije2)*tx(il)
+                  end do
+                  temp(col,j,ije2) = tmp + temp(col,j,ije2)
+                end do
+              end do
+            end do
+
+!...........mapping from temp to tmor
+
+            do ije1=1, nnje
+              shift = ije1-1
+              do ije2=1,nnje
+
+!...............for each column of collocation points on a piece of mortar
+                do col=2-shift,lx1-shift
+
+!.................For the end point, which is on an edge (local edge 2,4),
+!                 the contribution is halved since there will be duplicated
+!                 contribution from another face sharing this edge.
+
+                  ig=idmo(v_end(ije2),col,ije1,ije2,iface,ie)
+!
+!$                call omp_set_lock(tlock(ig))
+                  tmor(ig)=tmor(ig)+temp(v_end(ije2),col,ije1)*0.5d0
+!$                call omp_unset_lock(tlock(ig))
+
+!.................In each row of collocation points on a piece of mortar,
+!                 sum the contributions from interior collocation points
+!                 (i=2,lx1-1)
+
+                  do  j=1,lx1
+                    tmp=0.d0
+                    do i=2,lx1-1
+                      tmp = tmp + qbnew(i-1,j,ije2) * temp(i,col,ije1)
+                    end do
+                    ig=idmo(j,col,ije1,ije2,iface,ie)
+!
+!$                  call omp_set_lock(tlock(ig))
+                    tmor(ig)=tmor(ig)+tmp
+!$                  call omp_unset_lock(tlock(ig))
+                  end do
+                end do
+
+!...............For tmor on local edge 1 and 3, tmp is the contribution from
+!               an edge, so it is halved because of duplicated contribution
+!               from another face sharing this edge. tmp1 is contribution
+!               from face interior.
+
+                col = v_end(ije1)
+                ig=idmo(v_end(ije2),col,ije1,ije2,iface,ie)
+!
+!$              call omp_set_lock(tlock(ig))
+                tmor(ig)=tmor(ig)+top(v_end(ije2),ije1)*0.5d0
+!$              call omp_unset_lock(tlock(ig))
+                do  j=1,lx1
+                  tmp=0.d0
+                  tmp1=0.d0
+                  do i=2,lx1-1
+                    tmp  = tmp  + qbnew(i-1,j,ije2) * temp(i,col,ije1)
+                    tmp1 = tmp1 + qbnew(i-1,j,ije2) * top(i,ije1)
+                  end do
+                  ig=idmo(j,col,ije1,ije2,iface,ie)
+!
+!$                call omp_set_lock(tlock(ig))
+                  tmor(ig)=tmor(ig)+tmp*0.5d0+tmp1
+!$                call omp_unset_lock(tlock(ig))
+                end do
+              end do
+            end do
+
+!.........for conforming faces
+          else
+
+!.........face interior
+            do col=2,lx1-1
+              do j=2,lx1-1
+                il=idel(j,col,iface,ie)
+                ig=idmo(j,col,1,1,iface,ie)
+!
+!$              call omp_set_lock(tlock(ig))
+                tmor(ig)=tmor(ig)+tx(il)
+!$              call omp_unset_lock(tlock(ig))
+              end do
+            end do
+
+!...........edges of conforming faces
+
+!...........if local edge 1 is a nonconforming edge
+            if(idmo(lx1,1,1,1,iface,ie).ne.0)then
+              do ije=1,2
+                do j=1,lx1
+                  tmp=0.d0
+                  do i=2,lx1-1
+                    il=idel(i,1,iface,ie)
+                    tmp= tmp + qbnew(i-1,j,ije)*tx(il)
+                  end do
+                  ig=idmo(j,1,1,ije,iface,ie)
+!
+!$                call omp_set_lock(tlock(ig))
+                  tmor(ig)=tmor(ig)+tmp*0.5d0
+!$                call omp_unset_lock(tlock(ig))
+                end do
+              end do
+
+!...........if local edge 1 is a conforming edge
+            else
+              do j=2,lx1-1
+                il=idel(j,1,iface,ie)
+                ig=idmo(j,1,1,1,iface,ie)
+!
+!$              call omp_set_lock(tlock(ig))
+                tmor(ig)=tmor(ig)+tx(il)*0.5d0
+!$              call omp_unset_lock(tlock(ig))
+              end do
+            end if
+
+!...........if local edge 2 is a nonconforming edge
+            if(idmo(lx1,2,1,2,iface,ie).ne.0)then
+              do ije=1,2
+                do j=1,lx1
+                  tmp=0.d0
+                  do i=2,lx1-1
+                    il=idel(lx1,i,iface,ie)
+                    tmp = tmp + qbnew(i-1,j,ije)*tx(il)
+                  end do
+                  ig=idmo(lx1,j,ije,2,iface,ie)
+!
+!$                call omp_set_lock(tlock(ig))
+                  tmor(ig)=tmor(ig)+tmp*0.5d0
+!$                call omp_unset_lock(tlock(ig))
+                end do
+              end do
+
+!...........if local edge 2 is a conforming edge
+            else
+              do j=2,lx1-1
+                il=idel(lx1,j,iface,ie)
+                ig=idmo(lx1,j,1,1,iface,ie)
+!
+!$              call omp_set_lock(tlock(ig))
+                tmor(ig)=tmor(ig)+tx(il)*0.5d0
+!$              call omp_unset_lock(tlock(ig))
+              end do
+            end if
+
+!...........if local edge 3 is a nonconforming edge
+            if(idmo(2,lx1,2,1,iface,ie).ne.0)then
+              do ije=1,2
+                do j=1,lx1
+                  tmp=0.d0
+                  do i=2,lx1-1
+                    il=idel(i,lx1,iface,ie)
+                    tmp = tmp + qbnew(i-1,j,ije)*tx(il)
+                  end do
+                  ig=idmo(j,lx1,2,ije,iface,ie)
+!
+!$                call omp_set_lock(tlock(ig))
+                  tmor(ig)=tmor(ig)+tmp*0.5d0
+!$                call omp_unset_lock(tlock(ig))
+                end do
+              end do
+
+!...........if local edge 3 is a conforming edge
+            else
+              do j=2,lx1-1
+                il=idel(j,lx1,iface,ie)
+                ig=idmo(j,lx1,1,1,iface,ie)
+!
+!$              call omp_set_lock(tlock(ig))
+                tmor(ig)=tmor(ig)+tx(il)*0.5d0
+!$              call omp_unset_lock(tlock(ig))
+              end do
+            end if
+
+!...........if local edge 4 is a nonconforming edge
+            if(idmo(1,lx1,1,1,iface,ie).ne.0)then
+              do ije=1,2
+                do j=1,lx1
+                  tmp=0.d0
+                  do i=2,lx1-1
+                    il=idel(1,i,iface,ie)
+                    tmp = tmp + qbnew(i-1,j,ije)*tx(il)
+                  end do
+                  ig=idmo(1,j,ije,1,iface,ie)
+!
+!$                call omp_set_lock(tlock(ig))
+                  tmor(ig)=tmor(ig)+tmp*0.5d0
+!$                call omp_unset_lock(tlock(ig))
+                end do
+              end do
+
+!...........if local edge 4 is a conforming edge
+            else
+              do j=2,lx1-1
+                il=idel(1,j,iface,ie)
+                ig=idmo(1,j,1,1,iface,ie)
+!
+!$              call omp_set_lock(tlock(ig))
+                tmor(ig)=tmor(ig)+tx(il)*0.5d0
+!$              call omp_unset_lock(tlock(ig))
+              end do
+            end if
+          end if
+        end do
+      end do
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+      return
+      end
+
+!------------------------------------------------------------------
+      subroutine transfb_some_elements_with_pdev(tmor,tx,starting_element,ending_element)
+!------------------------------------------------------------------
+!     Map from element(tx) to mortar(tmor).
+!     *** with Pickle device ***
+!     *** Unlike other transfb variations, this function does not zero out tmor ***
+!     tmor sums contributions from all elements.
+!------------------------------------------------------------------
+
+      use ua_data
+#if ENABLE_PICKLEDEVICE==1
+      use iso_c_binding
+      use pickle_ua_mod
+#endif
+      implicit none
+
+      integer intent(in) :: starting_element, ending_element
+
+      double precision third
+      parameter (third=1.d0/3.d0)
+      integer shift
+
+      double precision tmp,tmp1,tx(*),tmor(*),temp(lx1,lx1,2),  &
+     &                 top(lx1,2)
+      integer il1,il2,il3,il4,ig1,ig2,ig3,ig4,ie,iface,nnje,  &
+     &        ije1,ije2,col,i,j,ije,ig,il
+
+!$OMP PARALLEL DEFAULT(SHARED) PRIVATE(il,j,ig,i,col,ije2,ije1,ig4,  &
+!$OMP& ig3,ig2,ig1,nnje,il4,il3,il2,il1,iface,ie,ije,  &
+!$OMP& tmp,shift,temp,top,tmp1, starting_element, ending_element)
+
+!$OMP DO
+      do ie=starting_element,ending_element
+
+! ============================================================
+!  PICKLE PREFETCH HINT — transfb (idel→pdiffp and idmo→ppmor)
+!
+!  Symmetric to transf: send 0-based starting offsets into
+!  idel and idmo for the current (ie, iface).  The device
+!  reads ahead and prefetches the corresponding pdiffp/ppmor
+!  cache lines.
+!
+! ============================================================
+#if ENABLE_PICKLEDEVICE==1
+        pkl_ucpage_kern3 = ie
+        pkl_ucpage_kern4 = ie
+#endif
+        do iface=1,nsides
+
 !.........nnje=1 for conforming faces, nnje=2 for nonconforming faces
           if(cbc(iface,ie).eq.3) then
             nnje=2
