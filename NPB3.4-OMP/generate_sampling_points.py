@@ -35,6 +35,13 @@ class SamplingPoint:
         self.starting_iter = starting_iter
         self.num_warmup_iters = num_warmup_iters
 
+class UA_SamplingPoint:
+    def __init__(self, ua_step, cg_iteration, starting_element, num_warmup_elements):
+        self.ua_step = ua_step
+        self.cg_iteration = cg_iteration
+        self.starting_element = starting_element
+        self.num_warmup_elements = num_warmup_elements
+
 # Format:
 # """
 # NAS Parallel Benchmarks (NPB3.4-OMP) - IS Benchmark
@@ -184,6 +191,37 @@ def generate_sampling_points_for_cg(
         print(f"  Sampling Point {i + 1}: Starting Row = {sp.starting_iter}, Warmup Rows = {sp.num_warmup_iters}")
     return sampling_points
 
+# For UA benchmark class D,
+# - There are 250 UA steps.
+# - In each UA step, there are 10 CG iterations.
+# - In each CG iteration, transf and transfb will be called once. These are the functions we want to profile.
+# - We will pick the transf/transfb call at a certain CG iteration of a certain UA step. This is one sampling point.
+# - lx1=5, lnje=2, nsides=6 (or 6 faces), num elements=514400, lmor=19134400
+# - For each element that transf/transfb process, the function pulls in,
+#   - lx1 * lx1 * nsides for idel, each is 4 bytes -> 600 bytes total
+#   - each idel indexes one tx, each tx is 8 bytes -> 5 * 5 * 6 * 8 = 1200 bytes total
+#   - between 29 and 100 (inclusive) for each side (or each face) for idmo, each is 4 bytes -> at least 29 * 6 * 4 = 696 bytes total
+#   - each idmo indexes one pmorx, each pmorx is 8 bytes -> at least 29 * 6 * 8 = 1392 bytes total
+# - In total, for each element that transf/transfb process, the function pulls in, at least (600 + 1200 + 696 + 1392) = 3888 bytes.
+# - So to warm up the cache, we need ceil(llc_size / 3888) elements to be processed by transf/transfb.
+# - Though, note that, the average number of idmo access is way larger than 29.
+def generate_sampling_points_for_ua_class_D(
+    workload_name, workload_class, llc_size_bytes, num_sampling_points
+):
+    sampling_points = []
+    while len(sampling_points) < num_sampling_points:
+        ua_step = random.randint(1, 250) # skip the step 0, which should not be profiled
+        cg_iteration = random.randint(1, 10) # 1 to 10, inclusive
+        starting_element = random.randint(1, 514400)
+        num_warmup_elements = llc_size_bytes // 3888 + 1
+        successfully_generated = (starting_element + num_warmup_elements + 10000) < 514400
+        if successfully_generated:
+            sampling_points.append(UA_SamplingPoint(ua_step, cg_iteration, starting_element, num_warmup_elements))
+    print(f"Generated {len(sampling_points)} sampling points:")
+    for i, sp in enumerate(sampling_points):
+        print(f"  Sampling Point {i + 1}: UA Step = {sp.ua_step}, CG Iteration = {sp.cg_iteration}, Starting Element = {sp.starting_element}, Warmup Elements = {sp.num_warmup_elements}")
+    return sampling_points
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         "Randomly generate sampling points for NPB workloads",
@@ -198,7 +236,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--workload",
         type=str,
-        choices=["cg.E", "is.D"],
+        choices={"cg.E", "is.D", "ua.D"},
         required=True,
         help="NPB workload to generate sampling points for",
     )
@@ -237,6 +275,9 @@ if __name__ == "__main__":
         assert sampling_site in {1}, f"{workload_name} only has one sampling site"
     elif workload_name in {"cg"}:
         assert sampling_site in {1, 2}, f"{workload_name} has two sampling sites"
+    elif workload_name in {"ua"}:
+        assert sampling_site in {1, 2, 3, 4}, f"{workload_name} has four sampling sites"
+        assert workload_class in {"D"}, f"{workload_name}.{workload_class} not implemented yet"
     else:
         raise ValueError(f"Unknown workload {workload_name}")
 
@@ -255,6 +296,8 @@ if __name__ == "__main__":
         sampling_points = generate_sampling_points_for_is(workload_name, workload_class, llc_size_bytes, num_sampling_points)
     elif workload_name == "cg":
         sampling_points = generate_sampling_points_for_cg(workload_name, workload_class, llc_size_bytes, num_sampling_points)
+    elif workload_name == "ua":
+        sampling_points = generate_sampling_points_for_ua_class_D(workload_name, workload_class, llc_size_bytes, num_sampling_points)
     else:
         raise ValueError(f"Unknown workload {workload_name}")
 
@@ -267,5 +310,11 @@ if __name__ == "__main__":
         f.write(f"  LLC Size: {args.llc_size_mib} MiB\n")
         f.write(f"  Number of Sampling Points: {num_sampling_points}\n")
         f.write(f"  Sampling Points:\n")
-        for i, sp in enumerate(sampling_points):
-            f.write(f"    Sampling Point {i + 1}: Starting Iter = {sp.starting_iter}, Num Warmup Iters = {sp.num_warmup_iters}\n")
+        if workload_name in {"is", "cg"}:
+            for i, sp in enumerate(sampling_points):
+                assert isinstance(sp, SamplingPoint)
+                f.write(f"    Sampling Point {i + 1}: Starting Iter = {sp.starting_iter}, Num Warmup Iters = {sp.num_warmup_iters}\n")
+        elif workload_name in {"ua"}:
+            for i, sp in enumerate(sampling_points):
+                assert isinstance(sp, UA_SamplingPoint)
+                f.write(f"    Sampling Point {i + 1}: UA Step = {sp.ua_step}, CG Iter = {sp.cg_iteration}, Starting Element = {sp.starting_element}, Num Warmup Elements = {sp.num_warmup_elements}\n")
