@@ -31,6 +31,7 @@
       integer(c_int64_t) :: pkl_idmo_n, pkl_idmo_esz
       integer(c_int64_t) :: pkl_pdiff_n, pkl_pdiff_esz
       integer(c_int64_t) :: pkl_pmor_n,  pkl_pmor_esz
+      integer(c_int64_t) :: pkl_cbc_n,   pkl_cbc_esz
 #endif
 
       if (timeron) call timer_start(t_diffusion)
@@ -171,6 +172,10 @@
               pkl_pmor_n    = int(size(pmorx), c_int64_t)
               pkl_pmor_esz  = int(storage_size(pmorx(1))/8, c_int64_t)
 
+              pkl_cbc_n    = int(size(cbc),   c_int64_t)
+              pkl_cbc_esz  = int(storage_size(cbc(1,1))/8,       &
+      &                            c_int64_t)
+
               ! Kernel 1: idel → pdiff   (transf  scatter target)
               pkl_kid = 1
               call pickle_ua_setup_idel_kernel_c(pkl_kid,               &
@@ -181,7 +186,8 @@
               pkl_kid = 2
               call pickle_ua_setup_idmo_kernel_c(pkl_kid,               &
       &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,&
-      &            c_loc(pmorx(1)),          pkl_pmor_n, pkl_pmor_esz)
+      &            c_loc(pmorx(1)),          pkl_pmor_n, pkl_pmor_esz,&
+      &            c_loc(cbc(1,1)),     pkl_cbc_n,  pkl_cbc_esz)
 
               ! Kernel 3: idel → pdiffp  (transfb gather  source)
               pkl_kid = 3
@@ -193,7 +199,8 @@
               pkl_kid = 4
               call pickle_ua_setup_idmo_kernel_c(pkl_kid,               &
       &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,&
-      &            c_loc(ppmor(1)),          pkl_pmor_n, pkl_pmor_esz)
+      &            c_loc(ppmor(1)),          pkl_pmor_n, pkl_pmor_esz,&
+      &            c_loc(cbc(1,1)),     pkl_cbc_n,  pkl_cbc_esz)
 
               ! Register num elements update kernel
               call pickle_ua_num_elements_update_kernel_c()
@@ -301,6 +308,10 @@
               pkl_pmor_n    = int(size(pmorx), c_int64_t)
               pkl_pmor_esz  = int(storage_size(pmorx(1))/8, c_int64_t)
 
+              pkl_cbc_n    = int(size(cbc),   c_int64_t)
+              pkl_cbc_esz  = int(storage_size(cbc(1,1))/8,       &
+      &                            c_int64_t)
+
               ! Kernel 1: idel → pdiff   (transf  scatter target)
               pkl_kid = 1
               call pickle_ua_setup_idel_kernel_c(pkl_kid,               &
@@ -311,7 +322,8 @@
               pkl_kid = 2
               call pickle_ua_setup_idmo_kernel_c(pkl_kid,               &
       &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,&
-      &            c_loc(pmorx(1)),          pkl_pmor_n, pkl_pmor_esz)
+      &            c_loc(pmorx(1)),          pkl_pmor_n, pkl_pmor_esz,&
+      &            c_loc(cbc(1,1)),     pkl_cbc_n,  pkl_cbc_esz)
 
               ! Kernel 3: idel → pdiffp  (transfb gather  source)
               pkl_kid = 3
@@ -323,7 +335,8 @@
               pkl_kid = 4
               call pickle_ua_setup_idmo_kernel_c(pkl_kid,               &
       &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,&
-      &            c_loc(ppmor(1)),          pkl_pmor_n, pkl_pmor_esz)
+      &            c_loc(ppmor(1)),          pkl_pmor_n, pkl_pmor_esz,&
+      &            c_loc(cbc(1,1)),     pkl_cbc_n,  pkl_cbc_esz)
 
               ! Register num elements update kernel
               call pickle_ua_num_elements_update_kernel_c()

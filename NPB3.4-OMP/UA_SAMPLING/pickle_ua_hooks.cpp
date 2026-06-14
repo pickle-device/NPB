@@ -138,61 +138,6 @@ void pickle_ua_init(
 
 
 #if ENABLE_PICKLEDEVICE==1
-/* Helper: register one (source-index → target-vector) kernel. */
-static void register_index_to_vec_kernel(
-    const char*    kname,
-    const char*    src_name,
-    const void*    src_base,
-    int64_t        src_nelems,
-    int64_t        src_esz,
-    const char*    tgt_name,
-    const void*    tgt_base,
-    int64_t        tgt_nelems,
-    int64_t        tgt_esz)
-{
-    PickleJob job(kname);
-
-    /* ----------------------------------------------------------
-     * Source index array (idel or idmo) — read sequentially
-     * by the device using the hint value as a 0-based index.
-     *
-     * No 1-based shift here: Fortran sends an already-0-based
-     * offset as the hint, so  vaddr_start + hint × esz  hits
-     * the right slot.
-     * ---------------------------------------------------------- */
-    auto src_desc = std::make_shared<PickleArrayDescriptor>();
-    src_desc->name         = src_name;
-    src_desc->vaddr_start  = (uint64_t)src_base;
-    src_desc->vaddr_end    = (uint64_t)src_base + src_nelems * src_esz;
-    src_desc->element_size = (uint64_t)src_esz;
-    src_desc->access_type      = AccessType::SingleElement;
-    src_desc->addressing_mode  = AddressingMode::Index;
-    job.addArrayDescriptor(src_desc);
-
-    /* ----------------------------------------------------------
-     * Target vector (pdiff/pdiffp/pmorx/ppmor) — accessed via
-     * the values returned from the source array, which are
-     * 1-based Fortran indices.  Shift vaddr_start back by one
-     * element so the device's  base + V × esz  formula lands
-     * on the correct slot for 1-based V.
-     * ---------------------------------------------------------- */
-    auto tgt_desc = std::make_shared<PickleArrayDescriptor>();
-    tgt_desc->name         = tgt_name;
-    tgt_desc->vaddr_start  = (uint64_t)tgt_base - (uint64_t)tgt_esz;
-    tgt_desc->vaddr_end    = (uint64_t)tgt_base + tgt_nelems * tgt_esz;
-    tgt_desc->element_size = (uint64_t)tgt_esz;
-    tgt_desc->access_type      = AccessType::SingleElement;
-    tgt_desc->addressing_mode  = AddressingMode::Index;
-    job.addArrayDescriptor(tgt_desc);
-
-    /* Indirection chain: src values index into target vector. */
-    src_desc->dst_indexing_array_id = tgt_desc->getArrayId();
-
-    job.print();
-    pdev->sendJob(job);
-    printf("[Pickle UA] Sent %s\n", kname);
-}
-
 /* Helper: register one dummy kernel. */
 static void register_dummy_kernel(const char* kname) {
     PickleJob job(kname);
@@ -232,14 +177,33 @@ void pickle_ua_setup_idel_kernel(
     char kname[64];
     snprintf(kname, sizeof(kname), "ua_idel_kernel_%d", *kernel_id);
     const char* tgt_name = (*kernel_id == 1) ? "pdiff" : "pdiffp";
+    PickleJob job(kname);
 
-    register_index_to_vec_kernel(
-        kname,
-        "idel", idel_base, *idel_nelems, *idel_esz,
-        tgt_name, tx_base, *tx_nelems,   *tx_esz);
-#else
-    (void)kernel_id; (void)idel_base; (void)idel_nelems; (void)idel_esz;
-    (void)tx_base;   (void)tx_nelems;  (void)tx_esz;
+    auto src_desc = std::make_shared<PickleArrayDescriptor>();
+    src_desc->name = "idel";
+    src_desc->vaddr_start = (uint64_t)idel_base;
+    src_desc->vaddr_end = (uint64_t)idel_base + *idel_nelems * *idel_esz;
+    src_desc->element_size = (uint64_t)*idel_esz;
+    src_desc->access_type = AccessType::SingleElement;
+    src_desc->addressing_mode = AddressingMode::Index;
+    job.addArrayDescriptor(src_desc);
+
+    auto tgt_desc = std::make_shared<PickleArrayDescriptor>();
+    tgt_desc->name = tgt_name; // tmor
+    tgt_desc->vaddr_start = (uint64_t)tx_base;
+    tgt_desc->vaddr_end = (uint64_t)tx_base + *tx_nelems * *tx_esz;
+    tgt_desc->element_size = (uint64_t)*tx_esz;
+    tgt_desc->access_type = AccessType::SingleElement;
+    tgt_desc->addressing_mode = AddressingMode::Index;
+    job.addArrayDescriptor(tgt_desc);
+
+    /* Indirection chain: src values index into target vector. */
+    src_desc->dst_indexing_array_id = tgt_desc->getArrayId();
+
+    job.print();
+    pdev->sendJob(job);
+    printf("[Pickle UA] Sent %s\n", kname);
+
 #endif
 }
 
@@ -257,7 +221,11 @@ void pickle_ua_setup_idmo_kernel(
     const int64_t* idmo_esz,
     const void*    tmor_base,
     const int64_t* tmor_nelems,
-    const int64_t* tmor_esz)
+    const int64_t* tmor_esz,
+    const void*    cbc_base,
+    const int64_t* cbc_nelems,
+    const int64_t* cbc_esz
+)
 {
 #if ENABLE_PICKLEDEVICE==1
     if (g_use_pdev != 1) return;
@@ -266,10 +234,47 @@ void pickle_ua_setup_idmo_kernel(
     snprintf(kname, sizeof(kname), "ua_idmo_kernel_%d", *kernel_id);
     const char* tgt_name = (*kernel_id == 2) ? "pmorx" : "ppmor";
 
-    register_index_to_vec_kernel(
-        kname,
-        "idmo", idmo_base, *idmo_nelems, *idmo_esz,
-        tgt_name, tmor_base, *tmor_nelems, *tmor_esz);
+    PickleJob job(kname);
+
+    auto src_desc = std::make_shared<PickleArrayDescriptor>();
+    src_desc->name = "idmo";
+    src_desc->vaddr_start = (uint64_t)idmo_base;
+    src_desc->vaddr_end = (uint64_t)idmo_base + *idmo_nelems * *idmo_esz;
+    src_desc->element_size = (uint64_t)*idmo_esz;
+    src_desc->access_type = AccessType::SingleElement;
+    src_desc->addressing_mode = AddressingMode::Index;
+    job.addArrayDescriptor(src_desc);
+
+    auto tgt_desc = std::make_shared<PickleArrayDescriptor>();
+    tgt_desc->name = tgt_name; // tmor
+    tgt_desc->vaddr_start = (uint64_t)tmor_base;
+    tgt_desc->vaddr_end = (uint64_t)tmor_base + *tmor_nelems * *tmor_esz;
+    tgt_desc->element_size = (uint64_t)*tmor_esz;
+    tgt_desc->access_type = AccessType::SingleElement;
+    tgt_desc->addressing_mode = AddressingMode::Index;
+    job.addArrayDescriptor(tgt_desc);
+
+    /* Indirection chain: src values index into target vector. */
+    src_desc->dst_indexing_array_id = tgt_desc->getArrayId();
+
+    // We send the cbc array for branch decision
+    auto cond_desc = std::make_shared<PickleArrayDescriptor>();
+    cond_desc->name = "cbc";
+    cond_desc->vaddr_start = (uint64_t)cbc_base;
+    cond_desc->vaddr_end = (uint64_t)cbc_base + *cbc_nelems * *cbc_esz;
+    cond_desc->element_size = (uint64_t)*cbc_esz;
+    cond_desc->access_type = AccessType::SingleElement;
+    cond_desc->addressing_mode = AddressingMode::Index;
+    job.addArrayDescriptor(cond_desc);
+
+    job.print();
+    pdev->sendJob(job);
+    printf("[Pickle UA] Sent %s\n", kname);
+
+    //register_index_to_vec_kernel(
+    //    kname,
+    //    "idmo", idmo_base, *idmo_nelems, *idmo_esz,
+    //    tgt_name, tmor_base, *tmor_nelems, *tmor_esz);
 #else
     (void)kernel_id; (void)idmo_base; (void)idmo_nelems; (void)idmo_esz;
     (void)tmor_base; (void)tmor_nelems; (void)tmor_esz;
