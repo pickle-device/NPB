@@ -100,7 +100,8 @@
 !   kernel_id = 4 → idmo → ppmor   (transfb scatter)
          subroutine pickle_ua_setup_idmo_kernel_c(kernel_id,           &
      &              idmo_base, idmo_n, idmo_esz,                       &
-     &              tmor_base, tmor_n, tmor_esz)                       &
+     &              tmor_base, tmor_n, tmor_esz,                       &
+     &              cbc_base,  cbc_n,  cbc_esz)                        &
      &              bind(C, name='pickle_ua_setup_idmo_kernel')
             import :: c_int, c_int64_t, c_ptr
             integer(c_int),     intent(in) :: kernel_id
@@ -108,6 +109,8 @@
             integer(c_int64_t), intent(in) :: idmo_n, idmo_esz
             type(c_ptr),        intent(in), value :: tmor_base
             integer(c_int64_t), intent(in) :: tmor_n, tmor_esz
+            type(c_ptr),        intent(in), value :: cbc_base
+            integer(c_int64_t), intent(in) :: cbc_n, cbc_esz
          end subroutine
 
 ! Register num elements context update kernel
