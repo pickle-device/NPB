@@ -123,7 +123,6 @@
 !.......compute matrix vector product: (theta pm) in the specification
 
         if (timeron) call timer_start(t_transf)
-        !call transf(pmorx,pdiff)
         if (sampling_site .eq. 1 .and. current_ua_step .eq. ua_starting_step .and. iter .eq. cg_starting_iter) then
            call transf_some_elements(pmorx,pdiff,1,transfer_starting_element-1)
            !------------- Exit 1: switch CPUs -------------
@@ -144,9 +143,18 @@
            ! warmup the cache
            call transf_some_elements(pmorx,pdiff,transfer_starting_element,transfer_starting_element+transfer_num_warmup_elements-1)
            !------------- Exit 2: done warmup cache, now setup Pickle device -------------
+#if ENABLE_GEM5==1
+           !$omp barrier
+           !$omp master
+               write(*,*) 'sampling site 1: done warm up'
+               call m5_exit()
+           !$omp end master
+           !$omp barrier
+#endif
 #if ENABLE_PICKLEDEVICE==1
            !$omp barrier
            !$omp master
+            write(*,*) 'sampling site 1: setup pickle device'
             call pickle_ua_device_init()
 
             if (pkl_use_pdev .eq. 1) then
@@ -195,6 +203,14 @@
             !$omp barrier
 #endif
            !------------- Exit 3: done setting up Pickle device; now start sampling -------------
+#if ENABLE_GEM5==1
+           !$omp barrier
+           !$omp master
+               write(*,*) 'sampling site 1: ROI Start; starting from ', transfer_starting_element+transfer_num_warmup_elements
+               call m5_exit()
+           !$omp end master
+           !$omp barrier
+#endif
 #if ENABLE_PICKLEDEVICE==1
            if (pkl_use_pdev .eq. 1) then
               call transf_some_elements_with_pdev(pmorx,pdiff,transfer_starting_element+transfer_num_warmup_elements,nelt)
@@ -254,9 +270,18 @@
      &       transfer_starting_element                        &
      &         +transfer_num_warmup_elements-1)
            !------------- Exit 2: done warmup cache, now setup Pickle device -------------
+#if ENABLE_GEM5==1
+           !$omp barrier
+           !$omp master
+               write(*,*) 'sampling site 2: done warm up'
+               call m5_exit()
+           !$omp end master
+           !$omp barrier
+#endif
 #if ENABLE_PICKLEDEVICE==1
            !$omp barrier
            !$omp master
+            write(*,*) 'sampling site 2: setup pickle device'
             call pickle_ua_device_init()
 
             if (pkl_use_pdev .eq. 1) then
@@ -300,11 +325,19 @@
               ! Obtain UCPage communication area
               call pickle_ua_setup_ucpages_c()
               call pickle_ua_setup_ucpage_ptrs()
-          endif
+            endif
             !$omp end master
             !$omp barrier
 #endif
            !------------- Exit 3: done setting up Pickle device; now start sampling -------------
+#if ENABLE_GEM5==1
+           !$omp barrier
+           !$omp master
+               write(*,*) 'sampling site 3: ROI Start; starting from ', transfer_starting_element+transfer_num_warmup_elements
+               call m5_exit()
+           !$omp end master
+           !$omp barrier
+#endif
 #if ENABLE_PICKLEDEVICE==1
            if (pkl_use_pdev .eq. 1) then
               call transfb_some_elements_with_pdev(ppmor,pdiffp,transfer_starting_element+transfer_num_warmup_elements,nelt)
