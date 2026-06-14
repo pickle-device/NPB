@@ -517,6 +517,9 @@
       integer ig1,ig2,ig3,ig4,ie,iface,il1,il2,il3,il4,  &
      &        nnje,ije1,ije2,col,i,j,ig,il
 
+#if ENABLE_PICKLEDEVICE==1
+        pkl_ucpage_kern5 = nelt
+#endif
 
 !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(il,j,ig,i,col,ije2,ije1,ig4,  &
 !$OMP& ig3,ig2,ig1,nnje,il4,il3,il2,il1,iface,ie,tmp,                   &
@@ -1420,6 +1423,10 @@
      &                 top(lx1,2)
       integer il1,il2,il3,il4,ig1,ig2,ig3,ig4,ie,iface,nnje,  &
      &        ije1,ije2,col,i,j,ije,ig,il
+
+#if ENABLE_PICKLEDEVICE==1
+        pkl_ucpage_kern5 = nelt
+#endif
 
 !$OMP PARALLEL DEFAULT(SHARED) PRIVATE(il,j,ig,i,col,ije2,ije1,ig4,  &
 !$OMP& ig3,ig2,ig1,nnje,il4,il3,il2,il1,iface,ie,ije,  &

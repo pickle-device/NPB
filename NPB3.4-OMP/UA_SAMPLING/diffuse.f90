@@ -195,6 +195,9 @@
       &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,&
       &            c_loc(ppmor(1)),          pkl_pmor_n, pkl_pmor_esz)
 
+              ! Register num elements update kernel
+              call pickle_ua_num_elements_update_kernel_c()
+
               ! Obtain UCPage communication area
               call pickle_ua_setup_ucpages_c()
               call pickle_ua_setup_ucpage_ptrs()
@@ -321,6 +324,9 @@
               call pickle_ua_setup_idmo_kernel_c(pkl_kid,               &
       &            c_loc(idmo(1,1,1,1,1,1)), pkl_idmo_n, pkl_idmo_esz,&
       &            c_loc(ppmor(1)),          pkl_pmor_n, pkl_pmor_esz)
+
+              ! Register num elements update kernel
+              call pickle_ua_num_elements_update_kernel_c()
 
               ! Obtain UCPage communication area
               call pickle_ua_setup_ucpages_c()

@@ -22,6 +22,7 @@
  *   Kernel 2 : idmo → pmorx   (transf  gather  source)
  *   Kernel 3 : idel → pdiffp  (transfb gather  source)
  *   Kernel 4 : idmo → ppmor   (transfb scatter target)
+ *   Kernel 5 : num elements update
  *
  * Fortran 1-based indexing
  * ========================
@@ -67,6 +68,7 @@ static volatile uint64_t*   UCPage_kern1   = nullptr;  /* idel → pdiff   */
 static volatile uint64_t*   UCPage_kern2   = nullptr;  /* idmo → pmorx   */
 static volatile uint64_t*   UCPage_kern3   = nullptr;  /* idel → pdiffp  */
 static volatile uint64_t*   UCPage_kern4   = nullptr;  /* idmo → ppmor   */
+static volatile uint64_t*   UCPage_kern5   = nullptr;  /* num elements update*/
 static volatile uint64_t*   PerfPage       = nullptr;
 #endif
 
@@ -190,6 +192,22 @@ static void register_index_to_vec_kernel(
     pdev->sendJob(job);
     printf("[Pickle UA] Sent %s\n", kname);
 }
+
+/* Helper: register one dummy kernel. */
+static void register_dummy_kernel(const char* kname) {
+    PickleJob job(kname);
+    auto src_desc = std::make_shared<PickleArrayDescriptor>();
+    src_desc->name         = "dummy";
+    src_desc->vaddr_start  = (uint64_t)0;
+    src_desc->vaddr_end    = (uint64_t)0;
+    src_desc->element_size = (uint64_t)0;
+    src_desc->access_type      = AccessType::SingleElement;
+    src_desc->addressing_mode  = AddressingMode::Index;
+    job.addArrayDescriptor(src_desc);
+    job.print();
+    pdev->sendJob(job);
+    printf("[Pickle UA] Sent %s\n", kname);
+}
 #endif
 
 
@@ -258,6 +276,15 @@ void pickle_ua_setup_idmo_kernel(
 #endif
 }
 
+void pickle_ua_num_elements_update_kernel()
+{
+#if ENABLE_PICKLEDEVICE==1
+    if (g_use_pdev != 1) return;
+
+    register_dummy_kernel("ua_num_elements_update_kernel");
+#endif
+}
+
 
 /* ----------------------------------------------------------------
  *  pickle_ua_setup_ucpages  —  obtain the UCPage communication area
@@ -276,11 +303,13 @@ void pickle_ua_setup_ucpages(void)
     UCPage_kern2 = (volatile uint64_t*)(base + 1);
     UCPage_kern3 = (volatile uint64_t*)(base + 2);
     UCPage_kern4 = (volatile uint64_t*)(base + 3);
+    UCPage_kern5 = (volatile uint64_t*)(base + 4);
 
     printf("[Pickle UA] UCPage_kern1 : 0x%lx\n", (unsigned long)UCPage_kern1);
     printf("[Pickle UA] UCPage_kern2 : 0x%lx\n", (unsigned long)UCPage_kern2);
     printf("[Pickle UA] UCPage_kern3 : 0x%lx\n", (unsigned long)UCPage_kern3);
     printf("[Pickle UA] UCPage_kern4 : 0x%lx\n", (unsigned long)UCPage_kern4);
+    printf("[Pickle UA] UCPage_kern5 : 0x%lx\n", (unsigned long)UCPage_kern5);
 #endif
 }
 
@@ -293,18 +322,21 @@ void pickle_ua_get_ucpage_ptrs(
     int64_t** out_kern1,
     int64_t** out_kern2,
     int64_t** out_kern3,
-    int64_t** out_kern4)
+    int64_t** out_kern4,
+    int64_t** out_kern5)
 {
 #if ENABLE_PICKLEDEVICE==1
     *out_kern1 = (int64_t*)UCPage_kern1;
     *out_kern2 = (int64_t*)UCPage_kern2;
     *out_kern3 = (int64_t*)UCPage_kern3;
     *out_kern4 = (int64_t*)UCPage_kern4;
+    *out_kern5 = (int64_t*)UCPage_kern5;
 #else
     *out_kern1 = nullptr;
     *out_kern2 = nullptr;
     *out_kern3 = nullptr;
     *out_kern4 = nullptr;
+    *out_kern5 = nullptr;
 #endif
 }
 
@@ -347,6 +379,7 @@ void pickle_ua_finalize(void)
     UCPage_kern2 = nullptr;
     UCPage_kern3 = nullptr;
     UCPage_kern4 = nullptr;
+    UCPage_kern5 = nullptr;
     PerfPage     = nullptr;
 #endif
 }

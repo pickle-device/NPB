@@ -30,6 +30,7 @@
 !      Kernel 2 : idmo → pmorx   (transf  gather  source)
 !      Kernel 3 : idel → pdiffp  (transfb gather  source)
 !      Kernel 4 : idmo → ppmor   (transfb scatter target)
+!      Kernel 5 : num elements update
 !
 !  The hints fire only when pkl_send_hints is .true., which is set by
 !  diffusion() around the CG inner-loop transf/transfb calls.  Other
@@ -61,6 +62,7 @@
       integer(c_int64_t), pointer, volatile :: pkl_ucpage_kern2 => null()
       integer(c_int64_t), pointer, volatile :: pkl_ucpage_kern3 => null()
       integer(c_int64_t), pointer, volatile :: pkl_ucpage_kern4 => null()
+      integer(c_int64_t), pointer, volatile :: pkl_ucpage_kern5 => null()
 
 
 !---------------------------------------------------------------------
@@ -106,6 +108,11 @@
             integer(c_int64_t), intent(in) :: idmo_n, idmo_esz
             type(c_ptr),        intent(in), value :: tmor_base
             integer(c_int64_t), intent(in) :: tmor_n, tmor_esz
+         end subroutine
+
+! Register num elements context update kernel
+         subroutine pickle_ua_num_elements_update_kernel_c()          &
+     &              bind(C, name='pickle_ua_num_elements_update_kernel')
          end subroutine
 
          subroutine pickle_ua_setup_ucpages_c()                        &
@@ -172,12 +179,13 @@
 !---------------------------------------------------------------------
       subroutine pickle_ua_setup_ucpage_ptrs()
          implicit none
-         type(c_ptr) :: cp1, cp2, cp3, cp4
-         call pickle_ua_get_ucpage_ptrs_c(cp1, cp2, cp3, cp4)
-         call c_f_pointer(cp1, pkl_ucpage_kern1)
-         call c_f_pointer(cp2, pkl_ucpage_kern2)
-         call c_f_pointer(cp3, pkl_ucpage_kern3)
-         call c_f_pointer(cp4, pkl_ucpage_kern4)
+         type(c_ptr) :: ptr1, ptr2, ptr3, ptr4, ptr5
+         call pickle_ua_get_ucpage_ptrs_c(ptr1, ptr2, ptr3, ptr4)
+         call c_f_pointer(ptr1, pkl_ucpage_kern1)
+         call c_f_pointer(ptr2, pkl_ucpage_kern2)
+         call c_f_pointer(ptr3, pkl_ucpage_kern3)
+         call c_f_pointer(ptr4, pkl_ucpage_kern4)
+         call c_f_pointer(ptr5, pkl_ucpage_kern5)
       end subroutine
 
 !---------------------------------------------------------------------
