@@ -46,13 +46,13 @@
 !.... integer arrays associated with element faces
       integer, allocatable, target ::  &
      &        idmo    (:,:,:,:,:,:),  &
-     &        idel    (:,:,    :,:)
+     &        idel    (:,:,    :,:),  &
+     &        cbc     (        :,:)
       integer, allocatable ::  &
      &        sje     (:,:,    :,:),  &
      &        sje_new (:,:,    :,:),  &
      &        ijel    (:,      :,:),  &
      &        ijel_new(:,      :,:),  &
-     &        cbc     (        :,:),  &
      &        cbc_new (        :,:)
 
 !.....integer array associated with vertices
