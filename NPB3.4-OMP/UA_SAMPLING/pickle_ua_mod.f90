@@ -119,10 +119,10 @@
      &              bind(C, name='pickle_ua_setup_ucpages')
          end subroutine
 
-         subroutine pickle_ua_get_ucpage_ptrs_c(p1, p2, p3, p4)        &
+         subroutine pickle_ua_get_ucpage_ptrs_c(p1, p2, p3, p4, p5)    &
      &              bind(C, name='pickle_ua_get_ucpage_ptrs')
             import :: c_ptr
-            type(c_ptr), intent(out) :: p1, p2, p3, p4
+            type(c_ptr), intent(out) :: p1, p2, p3, p4, p5
          end subroutine
 
          subroutine pickle_ua_perf_start_c(thread_id)                  &
@@ -180,7 +180,7 @@
       subroutine pickle_ua_setup_ucpage_ptrs()
          implicit none
          type(c_ptr) :: ptr1, ptr2, ptr3, ptr4, ptr5
-         call pickle_ua_get_ucpage_ptrs_c(ptr1, ptr2, ptr3, ptr4)
+         call pickle_ua_get_ucpage_ptrs_c(ptr1, ptr2, ptr3, ptr4, ptr5)
          call c_f_pointer(ptr1, pkl_ucpage_kern1)
          call c_f_pointer(ptr2, pkl_ucpage_kern2)
          call c_f_pointer(ptr3, pkl_ucpage_kern3)
