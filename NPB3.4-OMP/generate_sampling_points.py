@@ -212,7 +212,7 @@ def generate_sampling_points_for_ua_class_D(
     while len(sampling_points) < num_sampling_points:
         ua_step = random.randint(1, 250) # skip the step 0, which should not be profiled
         cg_iteration = random.randint(1, 10) # 1 to 10, inclusive
-        starting_element = random.randint(1, 514400)
+        starting_element = 10 # we want to evaluate the whole function call
         num_warmup_elements = llc_size_bytes // 3888 + 1
         successfully_generated = (starting_element + num_warmup_elements + 10000) < 514400
         if successfully_generated:
