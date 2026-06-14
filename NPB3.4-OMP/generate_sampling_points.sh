@@ -9,5 +9,3 @@ python3 generate_sampling_points.py --output_dir=$OUTPUT_DIR --workload cg.E --s
 python3 generate_sampling_points.py --output_dir=$OUTPUT_DIR --workload is.D --sampling_site=1
 python3 generate_sampling_points.py --output_dir=$OUTPUT_DIR --workload ua.D --sampling_site=1
 python3 generate_sampling_points.py --output_dir=$OUTPUT_DIR --workload ua.D --sampling_site=2
-python3 generate_sampling_points.py --output_dir=$OUTPUT_DIR --workload ua.D --sampling_site=3
-python3 generate_sampling_points.py --output_dir=$OUTPUT_DIR --workload ua.D --sampling_site=4
